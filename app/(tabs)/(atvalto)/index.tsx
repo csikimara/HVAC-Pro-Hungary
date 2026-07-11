@@ -8,7 +8,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
 } from 'react-native';
-import { ChevronDown, ChevronUp, Thermometer, Gauge, Wind, Zap, Activity } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Thermometer, Gauge, Wind, Zap, Activity, DollarSign } from 'lucide-react-native';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -562,6 +562,214 @@ function MassFlowConverter() {
   );
 }
 
+// ─── Currency Converter ───────────────────────────────────────────────────────
+
+const CURRENCIES = ['HUF', 'EUR', 'USD', 'GBP', 'CHF', 'CZK', 'PLN', 'RON', 'RSD', 'UAH'];
+
+function CurrencyConverter() {
+  const [open, setOpen] = useState(true);
+  const [value, setValue] = useState('');
+  const [fromCurrency, setFromCurrency] = useState('EUR');
+  const [toCurrency, setToCurrency] = useState('HUF');
+  const [result, setResult] = useState('—');
+  const [rate, setRate] = useState<number | null>(null);
+  const [timestamp, setTimestamp] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch rate whenever from/to changes
+  useEffect(() => {
+    if (fromCurrency === toCurrency) {
+      setRate(1);
+      setTimestamp(null);
+      setError(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setRate(null);
+    setResult('—');
+
+    // Use frankfurter.app — free, no key, supports HUF and all listed currencies
+    fetch(`https://api.frankfurter.app/latest?from=${fromCurrency}&to=${toCurrency}`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        if (data && data.rates && data.rates[toCurrency] !== undefined) {
+          const r = data.rates[toCurrency] as number;
+          setRate(r);
+          setTimestamp(data.date ?? null);
+          setError(null);
+          console.log(`[Pénzváltó] Árfolyam: 1 ${fromCurrency} = ${r} ${toCurrency}, dátum: ${data.date}`);
+        } else {
+          setError('Árfolyam nem elérhető');
+          console.log('[Pénzváltó] Hiba: árfolyam nem elérhető', data);
+        }
+        setLoading(false);
+      })
+      .catch(e => {
+        if (cancelled) return;
+        setError('Hálózati hiba');
+        setLoading(false);
+        console.log('[Pénzváltó] Hálózati hiba:', e);
+      });
+
+    return () => { cancelled = true; };
+  }, [fromCurrency, toCurrency]);
+
+  // Recalculate result when value or rate changes
+  useEffect(() => {
+    const v = parseFloat(value);
+    if (value.trim() === '' || isNaN(v) || rate === null) {
+      setResult('—');
+      return;
+    }
+    const converted = v * rate;
+    // Format: if HUF result, no decimals; otherwise 4 decimals
+    const formatted = toCurrency === 'HUF' || converted >= 1000
+      ? converted.toFixed(2)
+      : converted.toFixed(4);
+    setResult(formatted);
+  }, [value, rate, toCurrency]);
+
+  const swapCurrencies = () => {
+    console.log(`[Pénzváltó] Csere: ${fromCurrency} ↔ ${toCurrency}`);
+    setFromCurrency(toCurrency);
+    setToCurrency(fromCurrency);
+    setValue('');
+    setResult('—');
+  };
+
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => {
+          console.log('[Átváltók] Pénzváltó kártya toggled, open:', !open);
+          setOpen(!open);
+        }}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeaderLeft}>
+          <DollarSign size={20} color={HVAC_BLUE} />
+          <Text style={styles.cardTitle}>Pénzváltó</Text>
+        </View>
+        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+
+      {open && (
+        <View style={styles.cardBody}>
+
+          {/* FROM currency */}
+          <Text style={styles.label}>Ebből:</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+            {CURRENCIES.map(c => (
+              <TouchableOpacity
+                key={c}
+                style={[styles.segmentBtn, fromCurrency === c && styles.segmentBtnActive]}
+                onPress={() => {
+                  console.log('[Pénzváltó] Forrás pénznem:', c);
+                  setFromCurrency(c);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, fromCurrency === c && styles.segmentTextActive]}>{c}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* TO currency */}
+          <Text style={styles.label}>Ebbe:</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+            {CURRENCIES.map(c => (
+              <TouchableOpacity
+                key={c}
+                style={[styles.segmentBtn, toCurrency === c && styles.segmentBtnActiveTo]}
+                onPress={() => {
+                  console.log('[Pénzváltó] Cél pénznem:', c);
+                  setToCurrency(c);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, toCurrency === c && styles.segmentTextActive]}>{c}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Amount input */}
+          <Text style={styles.label}>Összeg ({fromCurrency})</Text>
+          <TextInput
+            style={styles.input}
+            value={value}
+            onChangeText={v => {
+              console.log('[Pénzváltó] Összeg input:', v);
+              setValue(v);
+            }}
+            keyboardType="numeric"
+            placeholder="pl. 100"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          {/* Swap button */}
+          <TouchableOpacity
+            onPress={swapCurrencies}
+            activeOpacity={0.7}
+            style={{
+              alignSelf: 'center',
+              marginBottom: 12,
+              backgroundColor: HVAC_SURFACE,
+              borderWidth: 1,
+              borderColor: HVAC_BORDER,
+              borderRadius: 10,
+              paddingHorizontal: 20,
+              paddingVertical: 8,
+            }}
+          >
+            <Text style={{ color: HVAC_BLUE, fontSize: 13, fontWeight: '600' }}>⇄ Csere</Text>
+          </TouchableOpacity>
+
+          {/* Result box */}
+          <View style={{
+            backgroundColor: HVAC_SURFACE,
+            borderWidth: 1,
+            borderColor: HVAC_BORDER,
+            borderRadius: 16,
+            padding: 16,
+            alignItems: 'center',
+          }}>
+            {loading ? (
+              <Text style={{ color: HVAC_TEXT_SECONDARY, fontSize: 14 }}>Árfolyam betöltése...</Text>
+            ) : error ? (
+              <Text style={{ color: '#EF4444', fontSize: 14 }}>{error}</Text>
+            ) : (
+              <>
+                <Text style={{ fontSize: 32, fontWeight: '800', color: HVAC_TEXT, fontVariant: ['tabular-nums'] }}>
+                  {result}
+                </Text>
+                <Text style={{ fontSize: 14, color: HVAC_TEXT_SECONDARY, marginTop: 4 }}>
+                  {toCurrency}
+                </Text>
+                {rate !== null && (
+                  <Text style={{ fontSize: 12, color: HVAC_TEXT_SECONDARY, marginTop: 8 }}>
+                    1 {fromCurrency} = {rate.toFixed(4)} {toCurrency}
+                  </Text>
+                )}
+                {timestamp && (
+                  <Text style={{ fontSize: 11, color: HVAC_TEXT_SECONDARY, marginTop: 4, opacity: 0.7 }}>
+                    MNB/ECB árfolyam · {timestamp}
+                  </Text>
+                )}
+              </>
+            )}
+          </View>
+
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function AtvaltoScreen() {
@@ -583,6 +791,7 @@ export default function AtvaltoScreen() {
         <AirflowConverter />
         <PowerConverter />
         <MassFlowConverter />
+        <CurrencyConverter />
       </ScrollView>
     </KeyboardAvoidingView>
   );
