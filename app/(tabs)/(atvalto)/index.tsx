@@ -18,37 +18,50 @@ const HVAC_TEXT = '#E8ECF0';
 const HVAC_TEXT_SECONDARY = '#7A8694';
 const HVAC_BLUE = '#1E90FF';
 
+// ─── Number formatting ────────────────────────────────────────────────────────
+
+function formatResult(n: number): string {
+  if (n >= 1000) return n.toFixed(2);
+  if (n >= 1) return n.toFixed(4);
+  if (n >= 0.0001) return n.toFixed(6);
+  return n.toExponential(4);
+}
+
 // ─── Temperature Converter ───────────────────────────────────────────────────
+
+type TempUnit = 'C' | 'F' | 'K';
+const TEMP_UNITS: TempUnit[] = ['C', 'F', 'K'];
+const TEMP_DISPLAY: Record<TempUnit, string> = { C: '°C', F: '°F', K: 'K' };
+
+function convertTemp(value: number, from: TempUnit, to: TempUnit): number {
+  let celsius: number;
+  if (from === 'C') celsius = value;
+  else if (from === 'F') celsius = (value - 32) * 5 / 9;
+  else celsius = value - 273.15;
+
+  if (to === 'C') return celsius;
+  if (to === 'F') return celsius * 9 / 5 + 32;
+  return celsius + 273.15;
+}
 
 function TemperatureConverter() {
   const [open, setOpen] = useState(true);
   const [value, setValue] = useState('');
-  const [unit, setUnit] = useState<'C' | 'F' | 'K'>('C');
-  const [results, setResults] = useState<{ C: string; F: string; K: string }>({ C: '—', F: '—', K: '—' });
+  const [fromUnit, setFromUnit] = useState<TempUnit>('C');
+  const [toUnit, setToUnit] = useState<TempUnit>('F');
+  const [result, setResult] = useState('—');
 
   useEffect(() => {
     const v = parseFloat(value);
-    if (isNaN(v)) {
-      setResults({ C: '—', F: '—', K: '—' });
+    if (value.trim() === '' || isNaN(v)) {
+      setResult('—');
       return;
     }
-    let celsius: number;
-    if (unit === 'C') celsius = v;
-    else if (unit === 'F') celsius = (v - 32) * 5 / 9;
-    else celsius = v - 273.15;
+    const converted = convertTemp(v, fromUnit, toUnit);
+    setResult(formatResult(converted));
+  }, [value, fromUnit, toUnit]);
 
-    const fahrenheit = celsius * 9 / 5 + 32;
-    const kelvin = celsius + 273.15;
-
-    setResults({
-      C: celsius.toFixed(2),
-      F: fahrenheit.toFixed(2),
-      K: kelvin.toFixed(2),
-    });
-  }, [value, unit]);
-
-  const unitLabels: ('C' | 'F' | 'K')[] = ['C', 'F', 'K'];
-  const unitDisplay = { C: '°C', F: '°F', K: 'K' };
+  const resultUnit = TEMP_DISPLAY[toUnit];
 
   return (
     <View style={styles.card}>
@@ -69,22 +82,39 @@ function TemperatureConverter() {
 
       {open && (
         <View style={styles.cardBody}>
+          <Text style={styles.selectorLabel}>Ebből:</Text>
           <View style={styles.segmentRow}>
-            {unitLabels.map(u => (
+            {TEMP_UNITS.map(u => (
               <TouchableOpacity
                 key={u}
-                style={[styles.segmentBtn, unit === u && styles.segmentBtnActive]}
+                style={[styles.segmentBtn, fromUnit === u && styles.segmentBtnActive]}
                 onPress={() => {
-                  console.log('[Átváltók] Hőmérséklet egység:', u);
-                  setUnit(u);
+                  console.log('[Átváltók] Hőmérséklet from egység:', u);
+                  setFromUnit(u);
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.segmentText, unit === u && styles.segmentTextActive]}>{unitDisplay[u]}</Text>
+                <Text style={[styles.segmentText, fromUnit === u && styles.segmentTextActive]}>{TEMP_DISPLAY[u]}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.label}>Érték ({unitDisplay[unit]})</Text>
+          <Text style={styles.selectorLabel}>Ebbe:</Text>
+          <View style={styles.segmentRow}>
+            {TEMP_UNITS.map(u => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.segmentBtn, toUnit === u && styles.segmentBtnActiveTo]}
+                onPress={() => {
+                  console.log('[Átváltók] Hőmérséklet to egység:', u);
+                  setToUnit(u);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, toUnit === u && styles.segmentTextActive]}>{TEMP_DISPLAY[u]}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.label}>Érték</Text>
           <TextInput
             style={styles.input}
             value={value}
@@ -96,13 +126,9 @@ function TemperatureConverter() {
             placeholder="pl. 25"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
-          <View style={styles.resultBox}>
-            {unitLabels.map(u => (
-              <View key={u} style={styles.resultRow}>
-                <Text style={styles.resultLabel}>{unitDisplay[u]}</Text>
-                <Text style={styles.resultValue}>{results[u]}</Text>
-              </View>
-            ))}
+          <View style={styles.resultSingle}>
+            <Text style={styles.resultBigValue}>{result}</Text>
+            <Text style={styles.resultUnitLabel}>{resultUnit}</Text>
           </View>
         </View>
       )}
@@ -129,26 +155,21 @@ const PRESSURE_DISPLAY: Record<PressureUnit, string> = {
 function PressureConverter() {
   const [open, setOpen] = useState(true);
   const [value, setValue] = useState('');
-  const [unit, setUnit] = useState<PressureUnit>('Pa');
-  const [results, setResults] = useState<Record<PressureUnit, string>>({
-    Pa: '—', kPa: '—', bar: '—', mbar: '—', psi: '—', mmH2O: '—',
-  });
+  const [fromUnit, setFromUnit] = useState<PressureUnit>('Pa');
+  const [toUnit, setToUnit] = useState<PressureUnit>('mbar');
+  const [result, setResult] = useState('—');
 
   useEffect(() => {
     const v = parseFloat(value);
-    if (isNaN(v)) {
-      const empty: Record<PressureUnit, string> = { Pa: '—', kPa: '—', bar: '—', mbar: '—', psi: '—', mmH2O: '—' };
-      setResults(empty);
+    if (value.trim() === '' || isNaN(v)) {
+      setResult('—');
       return;
     }
-    const pa = v * PRESSURE_TO_PA[unit];
-    const res = {} as Record<PressureUnit, string>;
-    PRESSURE_UNITS.forEach(u => {
-      const converted = pa / PRESSURE_TO_PA[u];
-      res[u] = converted < 0.001 ? converted.toFixed(6) : converted.toFixed(4);
-    });
-    setResults(res);
-  }, [value, unit]);
+    const converted = (v * PRESSURE_TO_PA[fromUnit]) / PRESSURE_TO_PA[toUnit];
+    setResult(formatResult(converted));
+  }, [value, fromUnit, toUnit]);
+
+  const resultUnit = PRESSURE_DISPLAY[toUnit];
 
   return (
     <View style={styles.card}>
@@ -169,24 +190,39 @@ function PressureConverter() {
 
       {open && (
         <View style={styles.cardBody}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.segmentScroll}>
-            <View style={styles.segmentRow}>
-              {PRESSURE_UNITS.map(u => (
-                <TouchableOpacity
-                  key={u}
-                  style={[styles.segmentBtn, unit === u && styles.segmentBtnActive]}
-                  onPress={() => {
-                    console.log('[Átváltók] Nyomás egység:', u);
-                    setUnit(u);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.segmentText, unit === u && styles.segmentTextActive]}>{PRESSURE_DISPLAY[u]}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-          <Text style={styles.label}>Érték ({PRESSURE_DISPLAY[unit]})</Text>
+          <Text style={styles.selectorLabel}>Ebből:</Text>
+          <View style={styles.segmentRow}>
+            {PRESSURE_UNITS.map(u => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.segmentBtn, fromUnit === u && styles.segmentBtnActive]}
+                onPress={() => {
+                  console.log('[Átváltók] Nyomás from egység:', u);
+                  setFromUnit(u);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, fromUnit === u && styles.segmentTextActive]}>{PRESSURE_DISPLAY[u]}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.selectorLabel}>Ebbe:</Text>
+          <View style={styles.segmentRow}>
+            {PRESSURE_UNITS.map(u => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.segmentBtn, toUnit === u && styles.segmentBtnActiveTo]}
+                onPress={() => {
+                  console.log('[Átváltók] Nyomás to egység:', u);
+                  setToUnit(u);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, toUnit === u && styles.segmentTextActive]}>{PRESSURE_DISPLAY[u]}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.label}>Érték</Text>
           <TextInput
             style={styles.input}
             value={value}
@@ -198,13 +234,9 @@ function PressureConverter() {
             placeholder="pl. 101325"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
-          <View style={styles.resultBox}>
-            {PRESSURE_UNITS.map(u => (
-              <View key={u} style={styles.resultRow}>
-                <Text style={styles.resultLabel}>{PRESSURE_DISPLAY[u]}</Text>
-                <Text style={styles.resultValue}>{results[u]}</Text>
-              </View>
-            ))}
+          <View style={styles.resultSingle}>
+            <Text style={styles.resultBigValue}>{result}</Text>
+            <Text style={styles.resultUnitLabel}>{resultUnit}</Text>
           </View>
         </View>
       )}
@@ -229,81 +261,88 @@ const AIRFLOW_DISPLAY: Record<AirflowUnit, string> = {
 function AirflowConverter() {
   const [open, setOpen] = useState(true);
   const [value, setValue] = useState('');
-  const [unit, setUnit] = useState<AirflowUnit>('m3h');
-  const [results, setResults] = useState<Record<AirflowUnit, string>>({
-    m3h: '—', m3s: '—', ls: '—', CFM: '—',
-  });
+  const [fromUnit, setFromUnit] = useState<AirflowUnit>('m3h');
+  const [toUnit, setToUnit] = useState<AirflowUnit>('ls');
+  const [result, setResult] = useState('—');
 
   useEffect(() => {
     const v = parseFloat(value);
-    if (isNaN(v)) {
-      setResults({ m3h: '—', m3s: '—', ls: '—', CFM: '—' });
+    if (value.trim() === '' || isNaN(v)) {
+      setResult('—');
       return;
     }
-    const m3s = v * AIRFLOW_TO_M3S[unit];
-    const res = {} as Record<AirflowUnit, string>;
-    AIRFLOW_UNITS.forEach(u => {
-      const converted = m3s / AIRFLOW_TO_M3S[u];
-      res[u] = converted.toFixed(4);
-    });
-    setResults(res);
-  }, [value, unit]);
+    const converted = (v * AIRFLOW_TO_M3S[fromUnit]) / AIRFLOW_TO_M3S[toUnit];
+    setResult(formatResult(converted));
+  }, [value, fromUnit, toUnit]);
+
+  const resultUnit = AIRFLOW_DISPLAY[toUnit];
 
   return (
     <View style={styles.card}>
       <TouchableOpacity
         style={styles.cardHeader}
         onPress={() => {
-          console.log('[Átváltók] Légmennyiség kártya toggled, open:', !open);
+          console.log('[Átváltók] Légszállítás kártya toggled, open:', !open);
           setOpen(!open);
         }}
         activeOpacity={0.7}
       >
         <View style={styles.cardHeaderLeft}>
           <Wind size={20} color={HVAC_BLUE} />
-          <Text style={styles.cardTitle}>Légmennyiség</Text>
+          <Text style={styles.cardTitle}>Légszállítás</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
 
       {open && (
         <View style={styles.cardBody}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.segmentScroll}>
-            <View style={styles.segmentRow}>
-              {AIRFLOW_UNITS.map(u => (
-                <TouchableOpacity
-                  key={u}
-                  style={[styles.segmentBtn, unit === u && styles.segmentBtnActive]}
-                  onPress={() => {
-                    console.log('[Átváltók] Légmennyiség egység:', u);
-                    setUnit(u);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.segmentText, unit === u && styles.segmentTextActive]}>{AIRFLOW_DISPLAY[u]}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-          <Text style={styles.label}>Érték ({AIRFLOW_DISPLAY[unit]})</Text>
+          <Text style={styles.selectorLabel}>Ebből:</Text>
+          <View style={styles.segmentRow}>
+            {AIRFLOW_UNITS.map(u => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.segmentBtn, fromUnit === u && styles.segmentBtnActive]}
+                onPress={() => {
+                  console.log('[Átváltók] Légszállítás from egység:', u);
+                  setFromUnit(u);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, fromUnit === u && styles.segmentTextActive]}>{AIRFLOW_DISPLAY[u]}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.selectorLabel}>Ebbe:</Text>
+          <View style={styles.segmentRow}>
+            {AIRFLOW_UNITS.map(u => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.segmentBtn, toUnit === u && styles.segmentBtnActiveTo]}
+                onPress={() => {
+                  console.log('[Átváltók] Légszállítás to egység:', u);
+                  setToUnit(u);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, toUnit === u && styles.segmentTextActive]}>{AIRFLOW_DISPLAY[u]}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.label}>Érték</Text>
           <TextInput
             style={styles.input}
             value={value}
             onChangeText={v => {
-              console.log('[Átváltók] Légmennyiség input:', v);
+              console.log('[Átváltók] Légszállítás input:', v);
               setValue(v);
             }}
             keyboardType="numeric"
             placeholder="pl. 1000"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
-          <View style={styles.resultBox}>
-            {AIRFLOW_UNITS.map(u => (
-              <View key={u} style={styles.resultRow}>
-                <Text style={styles.resultLabel}>{AIRFLOW_DISPLAY[u]}</Text>
-                <Text style={styles.resultValue}>{results[u]}</Text>
-              </View>
-            ))}
+          <View style={styles.resultSingle}>
+            <Text style={styles.resultBigValue}>{result}</Text>
+            <Text style={styles.resultUnitLabel}>{resultUnit}</Text>
           </View>
         </View>
       )}
@@ -329,25 +368,21 @@ const POWER_DISPLAY: Record<PowerUnit, string> = {
 function PowerConverter() {
   const [open, setOpen] = useState(true);
   const [value, setValue] = useState('');
-  const [unit, setUnit] = useState<PowerUnit>('kW');
-  const [results, setResults] = useState<Record<PowerUnit, string>>({
-    W: '—', kW: '—', BTUh: '—', kcalh: '—', HP: '—',
-  });
+  const [fromUnit, setFromUnit] = useState<PowerUnit>('kW');
+  const [toUnit, setToUnit] = useState<PowerUnit>('BTUh');
+  const [result, setResult] = useState('—');
 
   useEffect(() => {
     const v = parseFloat(value);
-    if (isNaN(v)) {
-      setResults({ W: '—', kW: '—', BTUh: '—', kcalh: '—', HP: '—' });
+    if (value.trim() === '' || isNaN(v)) {
+      setResult('—');
       return;
     }
-    const watts = v * POWER_TO_W[unit];
-    const res = {} as Record<PowerUnit, string>;
-    POWER_UNITS.forEach(u => {
-      const converted = watts / POWER_TO_W[u];
-      res[u] = converted.toFixed(4);
-    });
-    setResults(res);
-  }, [value, unit]);
+    const converted = (v * POWER_TO_W[fromUnit]) / POWER_TO_W[toUnit];
+    setResult(formatResult(converted));
+  }, [value, fromUnit, toUnit]);
+
+  const resultUnit = POWER_DISPLAY[toUnit];
 
   return (
     <View style={styles.card}>
@@ -368,24 +403,39 @@ function PowerConverter() {
 
       {open && (
         <View style={styles.cardBody}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.segmentScroll}>
-            <View style={styles.segmentRow}>
-              {POWER_UNITS.map(u => (
-                <TouchableOpacity
-                  key={u}
-                  style={[styles.segmentBtn, unit === u && styles.segmentBtnActive]}
-                  onPress={() => {
-                    console.log('[Átváltók] Teljesítmény egység:', u);
-                    setUnit(u);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.segmentText, unit === u && styles.segmentTextActive]}>{POWER_DISPLAY[u]}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-          <Text style={styles.label}>Érték ({POWER_DISPLAY[unit]})</Text>
+          <Text style={styles.selectorLabel}>Ebből:</Text>
+          <View style={styles.segmentRow}>
+            {POWER_UNITS.map(u => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.segmentBtn, fromUnit === u && styles.segmentBtnActive]}
+                onPress={() => {
+                  console.log('[Átváltók] Teljesítmény from egység:', u);
+                  setFromUnit(u);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, fromUnit === u && styles.segmentTextActive]}>{POWER_DISPLAY[u]}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.selectorLabel}>Ebbe:</Text>
+          <View style={styles.segmentRow}>
+            {POWER_UNITS.map(u => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.segmentBtn, toUnit === u && styles.segmentBtnActiveTo]}
+                onPress={() => {
+                  console.log('[Átváltók] Teljesítmény to egység:', u);
+                  setToUnit(u);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, toUnit === u && styles.segmentTextActive]}>{POWER_DISPLAY[u]}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.label}>Érték</Text>
           <TextInput
             style={styles.input}
             value={value}
@@ -397,13 +447,9 @@ function PowerConverter() {
             placeholder="pl. 5"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
-          <View style={styles.resultBox}>
-            {POWER_UNITS.map(u => (
-              <View key={u} style={styles.resultRow}>
-                <Text style={styles.resultLabel}>{POWER_DISPLAY[u]}</Text>
-                <Text style={styles.resultValue}>{results[u]}</Text>
-              </View>
-            ))}
+          <View style={styles.resultSingle}>
+            <Text style={styles.resultBigValue}>{result}</Text>
+            <Text style={styles.resultUnitLabel}>{resultUnit}</Text>
           </View>
         </View>
       )}
@@ -427,25 +473,21 @@ const MASSFLOW_DISPLAY: Record<MassFlowUnit, string> = {
 function MassFlowConverter() {
   const [open, setOpen] = useState(true);
   const [value, setValue] = useState('');
-  const [unit, setUnit] = useState<MassFlowUnit>('kgh');
-  const [results, setResults] = useState<Record<MassFlowUnit, string>>({
-    kgh: '—', kgs: '—', gs: '—',
-  });
+  const [fromUnit, setFromUnit] = useState<MassFlowUnit>('kgh');
+  const [toUnit, setToUnit] = useState<MassFlowUnit>('gs');
+  const [result, setResult] = useState('—');
 
   useEffect(() => {
     const v = parseFloat(value);
-    if (isNaN(v)) {
-      setResults({ kgh: '—', kgs: '—', gs: '—' });
+    if (value.trim() === '' || isNaN(v)) {
+      setResult('—');
       return;
     }
-    const kgs = v * MASSFLOW_TO_KGS[unit];
-    const res = {} as Record<MassFlowUnit, string>;
-    MASSFLOW_UNITS.forEach(u => {
-      const converted = kgs / MASSFLOW_TO_KGS[u];
-      res[u] = converted.toFixed(4);
-    });
-    setResults(res);
-  }, [value, unit]);
+    const converted = (v * MASSFLOW_TO_KGS[fromUnit]) / MASSFLOW_TO_KGS[toUnit];
+    setResult(formatResult(converted));
+  }, [value, fromUnit, toUnit]);
+
+  const resultUnit = MASSFLOW_DISPLAY[toUnit];
 
   return (
     <View style={styles.card}>
@@ -466,22 +508,39 @@ function MassFlowConverter() {
 
       {open && (
         <View style={styles.cardBody}>
+          <Text style={styles.selectorLabel}>Ebből:</Text>
           <View style={styles.segmentRow}>
             {MASSFLOW_UNITS.map(u => (
               <TouchableOpacity
                 key={u}
-                style={[styles.segmentBtn, unit === u && styles.segmentBtnActive]}
+                style={[styles.segmentBtn, fromUnit === u && styles.segmentBtnActive]}
                 onPress={() => {
-                  console.log('[Átváltók] Tömegáram egység:', u);
-                  setUnit(u);
+                  console.log('[Átváltók] Tömegáram from egység:', u);
+                  setFromUnit(u);
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.segmentText, unit === u && styles.segmentTextActive]}>{MASSFLOW_DISPLAY[u]}</Text>
+                <Text style={[styles.segmentText, fromUnit === u && styles.segmentTextActive]}>{MASSFLOW_DISPLAY[u]}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.label}>Érték ({MASSFLOW_DISPLAY[unit]})</Text>
+          <Text style={styles.selectorLabel}>Ebbe:</Text>
+          <View style={styles.segmentRow}>
+            {MASSFLOW_UNITS.map(u => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.segmentBtn, toUnit === u && styles.segmentBtnActiveTo]}
+                onPress={() => {
+                  console.log('[Átváltók] Tömegáram to egység:', u);
+                  setToUnit(u);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, toUnit === u && styles.segmentTextActive]}>{MASSFLOW_DISPLAY[u]}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.label}>Érték</Text>
           <TextInput
             style={styles.input}
             value={value}
@@ -493,13 +552,9 @@ function MassFlowConverter() {
             placeholder="pl. 100"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
-          <View style={styles.resultBox}>
-            {MASSFLOW_UNITS.map(u => (
-              <View key={u} style={styles.resultRow}>
-                <Text style={styles.resultLabel}>{MASSFLOW_DISPLAY[u]}</Text>
-                <Text style={styles.resultValue}>{results[u]}</Text>
-              </View>
-            ))}
+          <View style={styles.resultSingle}>
+            <Text style={styles.resultBigValue}>{result}</Text>
+            <Text style={styles.resultUnitLabel}>{resultUnit}</Text>
           </View>
         </View>
       )}
@@ -574,6 +629,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
+  selectorLabel: {
+    fontSize: 12,
+    color: HVAC_TEXT_SECONDARY,
+    marginBottom: 6,
+  },
   segmentScroll: { marginBottom: 12 },
   segmentRow: {
     flexDirection: 'row',
@@ -592,6 +652,10 @@ const styles = StyleSheet.create({
   segmentBtnActive: {
     backgroundColor: HVAC_BLUE,
     borderColor: HVAC_BLUE,
+  },
+  segmentBtnActiveTo: {
+    backgroundColor: '#06B6D4',
+    borderColor: '#06B6D4',
   },
   segmentText: {
     fontSize: 13,
@@ -616,6 +680,24 @@ const styles = StyleSheet.create({
     color: HVAC_TEXT,
     fontSize: 16,
     marginBottom: 12,
+  },
+  resultSingle: {
+    backgroundColor: HVAC_SURFACE,
+    borderWidth: 1,
+    borderColor: HVAC_BORDER,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  resultBigValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: HVAC_TEXT,
+  },
+  resultUnitLabel: {
+    fontSize: 14,
+    color: HVAC_TEXT_SECONDARY,
+    marginTop: 4,
   },
   resultBox: {
     backgroundColor: HVAC_CARD,
