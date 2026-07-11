@@ -31,7 +31,7 @@ const MODULE_CARDS: ModuleCard[] = [
     title: 'Kezdőlap',
     description: 'Főoldal és modulok áttekintése',
     route: '/(tabs)/(home)',
-    color: '#1E90FF',
+    color: '#64748B',
     Icon: Home,
   },
   {
