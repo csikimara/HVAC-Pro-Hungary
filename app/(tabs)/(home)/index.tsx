@@ -2,6 +2,7 @@ import React from 'react';
 import { ScrollView, View, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
+  Home,
   ArrowLeftRight,
   Wind,
   Snowflake,
@@ -26,6 +27,13 @@ interface ModuleCard {
 }
 
 const MODULE_CARDS: ModuleCard[] = [
+  {
+    title: 'Kezdőlap',
+    description: 'Főoldal és modulok áttekintése',
+    route: '/(tabs)/(home)',
+    color: '#1E90FF',
+    Icon: Home,
+  },
   {
     title: 'Átváltók',
     description: 'Mértékegység-átváltók',
@@ -70,12 +78,6 @@ const MODULE_CARDS: ModuleCard[] = [
   },
 ];
 
-const STATS = [
-  { value: '6', label: 'Modul' },
-  { value: '50+', label: 'Számítás' },
-  { value: 'Magyar', label: 'Nyelv' },
-];
-
 export default function HomeScreen() {
   const router = useRouter();
 
@@ -106,38 +108,8 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {/* Stats row */}
-      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 28 }}>
-        {STATS.map((stat) => (
-          <View
-            key={stat.label}
-            style={{
-              flex: 1,
-              backgroundColor: HVAC_CARD,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: HVAC_BORDER,
-              paddingVertical: 12,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: '700', color: HVAC_BLUE }}>
-              {stat.value}
-            </Text>
-            <Text style={{ fontSize: 11, color: HVAC_TEXT_SECONDARY, marginTop: 2 }}>
-              {stat.label}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Section title */}
-      <Text style={{ fontSize: 18, fontWeight: '700', color: HVAC_TEXT, marginBottom: 14 }}>
-        Modulok
-      </Text>
-
-      {/* 2-column grid */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+      {/* Full-width single-column tile list */}
+      <View style={{ gap: 12 }}>
         {MODULE_CARDS.map((card) => {
           const CardIcon = card.Icon;
           return (
@@ -146,33 +118,37 @@ export default function HomeScreen() {
               activeOpacity={0.75}
               onPress={() => handleModulePress(card.title, card.route)}
               style={{
-                width: '47.5%',
+                width: '100%',
                 backgroundColor: HVAC_CARD,
                 borderRadius: 16,
                 borderWidth: 1,
                 borderColor: HVAC_BORDER,
-                padding: 16,
+                padding: 20,
+                flexDirection: 'row',
+                alignItems: 'center',
               }}
             >
               <View
                 style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
+                  width: 52,
+                  height: 52,
+                  borderRadius: 26,
                   backgroundColor: card.color + '22',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginBottom: 12,
+                  marginRight: 16,
                 }}
               >
-                <CardIcon size={22} color={card.color} />
+                <CardIcon size={26} color={card.color} />
               </View>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: HVAC_TEXT, marginBottom: 4 }}>
-                {card.title}
-              </Text>
-              <Text style={{ fontSize: 12, color: HVAC_TEXT_SECONDARY, lineHeight: 17 }}>
-                {card.description}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: HVAC_TEXT, marginBottom: 4 }}>
+                  {card.title}
+                </Text>
+                <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 18 }}>
+                  {card.description}
+                </Text>
+              </View>
             </TouchableOpacity>
           );
         })}
