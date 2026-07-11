@@ -8,7 +8,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
 } from 'react-native';
-import { ChevronDown, ChevronUp, Ruler, TrendingDown, FlaskConical } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Ruler, TrendingDown } from 'lucide-react-native';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -308,109 +308,6 @@ function PressureDropTool() {
   );
 }
 
-// ─── Pressure Test ────────────────────────────────────────────────────────────
-
-function PressureTestTool() {
-  const [open, setOpen] = useState(true);
-  const [V, setV] = useState('');
-  const [pProba, setPProba] = useState('1.5');
-  const [pAtm, setPAtm] = useState('1.013');
-  const [T, setT] = useState('20');
-  const [t, setT2] = useState('30');
-
-  type PressureTestResult = {
-    pAbs: string;
-    dpMax5: string;
-    dpMax5Pa: string;
-    dpMax2: string;
-    dpMax2Pa: string;
-    duration: string;
-  };
-
-  const [result, setResult] = useState<PressureTestResult | null>(null);
-
-  function calculate() {
-    console.log('[Légtechnika] Nyomáspróba számítás, V:', V, 'P_próba:', pProba, 'P_atm:', pAtm, 'T:', T, 't:', t);
-    const vVal = parseFloat(V);
-    const pProbaVal = parseFloat(pProba);
-    const pAtmVal = parseFloat(pAtm);
-
-    if (isNaN(vVal) || isNaN(pProbaVal) || isNaN(pAtmVal) || pProbaVal <= 0) {
-      setResult(null);
-      return;
-    }
-
-    const pAbs = pProbaVal + pAtmVal;
-    const dpMax5 = pProbaVal * 0.05;
-    const dpMax2 = pProbaVal * 0.02;
-
-    setResult({
-      pAbs: pAbs.toFixed(3),
-      dpMax5: dpMax5.toFixed(4),
-      dpMax5Pa: (dpMax5 * 100000).toFixed(0),
-      dpMax2: dpMax2.toFixed(4),
-      dpMax2Pa: (dpMax2 * 100000).toFixed(0),
-      duration: t,
-    });
-  }
-
-  return (
-    <View style={styles.card}>
-      <TouchableOpacity
-        style={styles.cardHeader}
-        onPress={() => {
-          console.log('[Légtechnika] Nyomáspróba kártya toggled, open:', !open);
-          setOpen(!open);
-        }}
-        activeOpacity={0.7}
-      >
-        <View style={styles.cardHeaderLeft}>
-          <FlaskConical size={20} color={HVAC_BLUE} />
-          <Text style={styles.cardTitle}>Nyomáspróba kalkulátor</Text>
-        </View>
-        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
-      </TouchableOpacity>
-
-      {open && (
-        <View style={styles.cardBody}>
-          <Text style={styles.label}>Rendszer térfogata V (m³)</Text>
-          <TextInput style={styles.input} value={V} onChangeText={setV} keyboardType="numeric" placeholder="pl. 0.5" placeholderTextColor={HVAC_TEXT_SECONDARY} />
-          <Text style={styles.label}>Próbanyomás P_próba (bar)</Text>
-          <TextInput style={styles.input} value={pProba} onChangeText={setPProba} keyboardType="numeric" placeholder="1.5" placeholderTextColor={HVAC_TEXT_SECONDARY} />
-          <Text style={styles.label}>Légköri nyomás P_atm (bar)</Text>
-          <TextInput style={styles.input} value={pAtm} onChangeText={setPAtm} keyboardType="numeric" placeholder="1.013" placeholderTextColor={HVAC_TEXT_SECONDARY} />
-          <Text style={styles.label}>Hőmérséklet T (°C)</Text>
-          <TextInput style={styles.input} value={T} onChangeText={setT} keyboardType="numeric" placeholder="20" placeholderTextColor={HVAC_TEXT_SECONDARY} />
-          <Text style={styles.label}>Próba időtartama t (perc)</Text>
-          <TextInput style={styles.input} value={t} onChangeText={setT2} keyboardType="numeric" placeholder="30" placeholderTextColor={HVAC_TEXT_SECONDARY} />
-
-          <TouchableOpacity style={styles.calcBtn} onPress={calculate} activeOpacity={0.8}>
-            <Text style={styles.calcBtnText}>Kiszámít</Text>
-          </TouchableOpacity>
-
-          {result && (
-            <View style={styles.resultBox}>
-              <ResultRow label="Abszolút próbanyomás" value={result.pAbs} unit="bar" highlight={HVAC_BLUE} />
-              <View style={styles.divider} />
-              <Text style={styles.resultSectionLabel}>Max. megengedett nyomáscsökkenés (5%)</Text>
-              <ResultRow label="bar" value={result.dpMax5} unit="bar" />
-              <ResultRow label="Pascal" value={result.dpMax5Pa} unit="Pa" />
-              <View style={styles.divider} />
-              <Text style={styles.resultSectionLabel}>Max. megengedett nyomáscsökkenés (2%)</Text>
-              <ResultRow label="bar" value={result.dpMax2} unit="bar" />
-              <ResultRow label="Pascal" value={result.dpMax2Pa} unit="Pa" />
-              <View style={styles.divider} />
-              <Text style={styles.noteText}>
-                A próba sikeres, ha a nyomáscsökkenés nem haladja meg a megengedett értéket a(z) {result.duration} perces időtartam alatt.
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
-    </View>
-  );
-}
-
 // ─── Shared ResultRow ─────────────────────────────────────────────────────────
 
 function ResultRow({ label, value, unit, highlight }: { label: string; value: string; unit: string; highlight?: string }) {
@@ -441,7 +338,6 @@ export default function LegtechnikaScreen() {
         <Text style={styles.screenTitle}>Légtechnika</Text>
         <DuctSizingTool />
         <PressureDropTool />
-        <PressureTestTool />
       </ScrollView>
     </KeyboardAvoidingView>
   );

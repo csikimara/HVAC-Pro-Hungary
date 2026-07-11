@@ -36,28 +36,44 @@ function getStatusLabel(level: StatusLevel): string {
 }
 
 function getCrStatus(cr: number): StatusLevel {
-  if (cr >= 2.0 && cr <= 4.5) return 'normal';
-  if (cr > 4.5 && cr <= 6.0) return 'warning';
+  if (cr >= 2.5 && cr <= 4.5) return 'normal';
+  if ((cr > 4.5 && cr <= 6.0) || (cr >= 2.0 && cr < 2.5)) return 'warning';
   return 'critical';
 }
 
-function getDtStatus(dt: number): StatusLevel {
-  if (dt >= 40 && dt <= 80) return 'normal';
-  if (dt > 80 && dt <= 100) return 'warning';
+function getShStatus(sh: number): StatusLevel {
+  if (sh >= 5 && sh <= 15) return 'normal';
+  if ((sh > 15 && sh <= 25) || (sh >= 3 && sh < 5)) return 'warning';
+  return 'critical';
+}
+
+function getScStatus(sc: number): StatusLevel {
+  if (sc >= 5 && sc <= 10) return 'normal';
+  if ((sc > 10 && sc <= 15) || (sc >= 3 && sc < 5)) return 'warning';
+  return 'critical';
+}
+
+function getTdStatus(td: number): StatusLevel {
+  if (td <= 90) return 'normal';
+  if (td <= 110) return 'warning';
   return 'critical';
 }
 
 function getCurrentStatus(pct: number): StatusLevel {
   if (pct <= 100) return 'normal';
-  if (pct <= 110) return 'warning';
+  if (pct <= 115) return 'warning';
   return 'critical';
 }
 
 type DiagResult = {
   cr: number;
   crStatus: StatusLevel;
-  dt: number;
-  dtStatus: StatusLevel;
+  sh: number;
+  shStatus: StatusLevel;
+  sc: number;
+  scStatus: StatusLevel;
+  td: number;
+  tdStatus: StatusLevel;
   currentPct: number;
   currentStatus: StatusLevel;
   overall: StatusLevel;
@@ -94,21 +110,28 @@ function CompressorDiagnostics() {
   const [Pd, setPd] = useState('');
   const [Ts, setTs] = useState('');
   const [Td, setTd] = useState('');
+  const [TsatS, setTsatS] = useState('');
+  const [TsatD, setTsatD] = useState('');
+  const [Tliq, setTliq] = useState('');
   const [I, setI] = useState('');
   const [Inom, setInom] = useState('');
   const [result, setResult] = useState<DiagResult | null>(null);
 
   function runDiagnostics() {
-    console.log('[Diagnosztika] Kompresszor diagnosztika futtatása, Ps:', Ps, 'Pd:', Pd, 'Ts:', Ts, 'Td:', Td, 'I:', I, 'I_nom:', Inom);
+    console.log('[Diagnosztika] Kompresszor diagnosztika futtatása, Ps:', Ps, 'Pd:', Pd, 'Ts:', Ts, 'Td:', Td, 'T_sat_s:', TsatS, 'T_sat_d:', TsatD, 'T_liq:', Tliq, 'I:', I, 'I_nom:', Inom);
     const psVal = parseFloat(Ps);
     const pdVal = parseFloat(Pd);
     const tsVal = parseFloat(Ts);
     const tdVal = parseFloat(Td);
+    const tsatSVal = parseFloat(TsatS);
+    const tsatDVal = parseFloat(TsatD);
+    const tliqVal = parseFloat(Tliq);
     const iVal = parseFloat(I);
     const inomVal = parseFloat(Inom);
 
     if (
       isNaN(psVal) || isNaN(pdVal) || isNaN(tsVal) || isNaN(tdVal) ||
+      isNaN(tsatSVal) || isNaN(tsatDVal) || isNaN(tliqVal) ||
       isNaN(iVal) || isNaN(inomVal) || psVal <= 0 || inomVal <= 0
     ) {
       setResult(null);
@@ -116,21 +139,25 @@ function CompressorDiagnostics() {
     }
 
     const cr = pdVal / psVal;
-    const dt = tdVal - tsVal;
+    const sh = tsVal - tsatSVal;
+    const sc = tsatDVal - tliqVal;
     const currentPct = (iVal / inomVal) * 100;
 
     const crStatus = getCrStatus(cr);
-    const dtStatus = getDtStatus(dt);
+    const shStatus = getShStatus(sh);
+    const scStatus = getScStatus(sc);
+    const tdStatus = getTdStatus(tdVal);
     const currentStatus = getCurrentStatus(currentPct);
 
+    const statuses: StatusLevel[] = [crStatus, shStatus, scStatus, tdStatus, currentStatus];
     let overall: StatusLevel = 'normal';
-    if (crStatus === 'critical' || dtStatus === 'critical' || currentStatus === 'critical') {
+    if (statuses.includes('critical')) {
       overall = 'critical';
-    } else if (crStatus === 'warning' || dtStatus === 'warning' || currentStatus === 'warning') {
+    } else if (statuses.includes('warning')) {
       overall = 'warning';
     }
 
-    setResult({ cr, crStatus, dt, dtStatus, currentPct, currentStatus, overall });
+    setResult({ cr, crStatus, sh, shStatus, sc, scStatus, td: tdVal, tdStatus, currentPct, currentStatus, overall });
   }
 
   const overallColor = result ? getStatusColor(result.overall) : HVAC_TEXT_SECONDARY;
@@ -143,37 +170,63 @@ function CompressorDiagnostics() {
     : null;
 
   const crVal = result ? result.cr.toFixed(2) : '—';
-  const dtVal = result ? result.dt.toFixed(1) : '—';
+  const shVal = result ? result.sh.toFixed(1) : '—';
+  const scVal = result ? result.sc.toFixed(1) : '—';
+  const tdVal = result ? result.td.toFixed(1) : '—';
   const currentPctVal = result ? result.currentPct.toFixed(1) : '—';
 
   function getRecommendations(r: DiagResult): string[] {
     const recs: string[] = [];
+
+    if (r.shStatus === 'critical' && r.sh < 3) {
+      recs.push('• Folyadékos visszaszívás veszélye! Ellenőrizd az expanziós szelepet és az elpárologtató töltetet. Azonnali leállítás javasolt.');
+    }
+    if (r.shStatus === 'critical' && r.sh > 25) {
+      recs.push('• Túl magas szívócső túlhevítés. Valószínű ok: alacsony hűtőközeg töltés vagy elzárt szívószelep. Ellenőrizd a töltetet és a szívóvezetéket.');
+    }
+    if (r.shStatus === 'warning' && r.sh > 15) {
+      recs.push('• Emelkedett túlhevítés. Ellenőrizd a hűtőközeg töltetet és az expanziós szelep beállítását.');
+    }
+    if (r.shStatus === 'warning' && r.sh < 5) {
+      recs.push('• Alacsony túlhevítés. Figyelj a folyadékos visszaszívás jelére, ellenőrizd az elpárologtatót.');
+    }
+
+    if (r.scStatus === 'critical' && r.sc < 3) {
+      recs.push('• Alacsony alűtés: lehetséges hűtőközeg hiány vagy gőzbuborék a folyadékvezetékben. Ellenőrizd a töltetet és a szárítószűrőt.');
+    }
+    if (r.scStatus === 'critical' && r.sc > 15) {
+      recs.push('• Magas alűtés: lehetséges túltöltés vagy kondenzátor hőátadási probléma. Ellenőrizd a kondenzátort és a töltetet.');
+    }
+    if (r.scStatus === 'warning') {
+      recs.push('• Alűtés a határon. Ellenőrizd a kondenzátor tisztaságát és a hűtőközeg töltetet.');
+    }
+
     if (r.crStatus === 'critical' && r.cr > 6.0) {
-      recs.push('• Magas kompresszió arány: ellenőrizd a kondenzátor hőcserélőt és a hűtőközeg töltetet.');
+      recs.push('• Kritikusan magas kompresszió arány. Ellenőrizd a kondenzátor hőcserélőt, a hűtőventilátor működését és a hűtőközeg töltetet.');
     }
     if (r.crStatus === 'critical' && r.cr < 2.0) {
-      recs.push('• Alacsony kompresszió arány: lehetséges hűtőközeg szivárgás vagy kompresszor meghibásodás.');
+      recs.push('• Kritikusan alacsony kompresszió arány. Lehetséges kompresszor meghibásodás vagy súlyos hűtőközeg szivárgás.');
     }
     if (r.crStatus === 'warning') {
-      recs.push('• Emelkedett kompresszió arány: figyelj a kondenzátor tisztaságára.');
+      recs.push('• Emelkedett kompresszió arány. Figyelj a kondenzátor tisztaságára és a környezeti hőmérsékletre.');
     }
-    if (r.dtStatus === 'critical' && r.dt > 100) {
-      recs.push('• Túl magas nyomóhőmérséklet: azonnali leállítás javasolt, ellenőrizd a hűtőközeg töltetet és a kenőolajat.');
+
+    if (r.tdStatus === 'critical') {
+      recs.push('• Kritikusan magas nyomóhőmérséklet! Azonnali leállítás javasolt. Ellenőrizd a kenőolajat, a hűtőközeg töltetet és a kondenzátort.');
     }
-    if (r.dtStatus === 'critical' && r.dt < 30) {
-      recs.push('• Alacsony hőmérséklet-különbség: lehetséges folyadékos visszaszívás, ellenőrizd az elpárologtatót.');
+    if (r.tdStatus === 'warning') {
+      recs.push('• Emelkedett nyomóhőmérséklet. Ellenőrizd a kondenzátor hőátadását és a hűtőközeg töltetet.');
     }
-    if (r.dtStatus === 'warning') {
-      recs.push('• Emelkedett nyomóhőmérséklet: ellenőrizd a hűtőközeg töltetet és a szívócső szigetelését.');
-    }
+
     if (r.currentStatus === 'critical') {
-      recs.push('• Túlterhelés: ellenőrizd a tápfeszültséget, a kompresszor tekercselését és a kondenzátort.');
+      recs.push('• Súlyos túlterhelés! Ellenőrizd a tápfeszültséget, a kompresszor tekercselését és a kondenzátort. Azonnali beavatkozás szükséges.');
     }
     if (r.currentStatus === 'warning') {
-      recs.push('• Közel névleges áramterhelés: figyelj a hőmérsékleti viszonyokra.');
+      recs.push('• Közel névleges vagy enyhén túlterhelt. Figyelj a hőmérsékleti viszonyokra és a tápfeszültségre.');
     }
+
     if (recs.length === 0) {
-      recs.push('• A kompresszor minden mért paramétere normál tartományban van.');
+      recs.push('• Minden mért paraméter normál tartományban van. A kompresszor megfelelően működik.');
       recs.push('• Következő ellenőrzés: 3 hónap múlva vagy a következő karbantartáskor.');
     }
     return recs;
@@ -255,6 +308,41 @@ function CompressorDiagnostics() {
 
           <View style={styles.inputGrid}>
             <View style={styles.inputHalf}>
+              <Text style={styles.label}>Szívóoldali telítési hőm. T_sat_s (°C)</Text>
+              <TextInput
+                style={styles.input}
+                value={TsatS}
+                onChangeText={setTsatS}
+                keyboardType="numeric"
+                placeholder="pl. 5"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+            </View>
+            <View style={styles.inputHalf}>
+              <Text style={styles.label}>Nyomóoldali telítési hőm. T_sat_d (°C)</Text>
+              <TextInput
+                style={styles.input}
+                value={TsatD}
+                onChangeText={setTsatD}
+                keyboardType="numeric"
+                placeholder="pl. 45"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+            </View>
+          </View>
+
+          <Text style={styles.label}>Folyadékhőmérséklet T_liq (°C)</Text>
+          <TextInput
+            style={styles.input}
+            value={Tliq}
+            onChangeText={setTliq}
+            keyboardType="numeric"
+            placeholder="pl. 38"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          <View style={styles.inputGrid}>
+            <View style={styles.inputHalf}>
               <Text style={styles.label}>Felvett áram I (A)</Text>
               <TextInput
                 style={styles.input}
@@ -309,10 +397,24 @@ function CompressorDiagnostics() {
                 />
                 <View style={styles.divider} />
                 <DiagRow
-                  label="Hőmérséklet különbség ΔT"
-                  value={dtVal}
+                  label="Szívócső túlhevítés SH"
+                  value={shVal}
                   unit="°C"
-                  status={result.dtStatus}
+                  status={result.shStatus}
+                />
+                <View style={styles.divider} />
+                <DiagRow
+                  label="Alűtés SC"
+                  value={scVal}
+                  unit="°C"
+                  status={result.scStatus}
+                />
+                <View style={styles.divider} />
+                <DiagRow
+                  label="Nyomóhőmérséklet T_d"
+                  value={tdVal}
+                  unit="°C"
+                  status={result.tdStatus}
                 />
                 <View style={styles.divider} />
                 <DiagRow
