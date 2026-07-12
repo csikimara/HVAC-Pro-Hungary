@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -43,9 +43,6 @@ function ResultRow({ label, value, unit, highlight }: {
 
 // ─── 1. Teljesítmény átváltó ──────────────────────────────────────────────────
 
-const TO_KW: Record<string, number> = { 'kW': 1, 'BTU/h': 1 / 3412.14, 'W': 0.001, 'kcal/h': 1 / 860 };
-const FROM_KW: Record<string, number> = { 'kW': 1, 'BTU/h': 3412.14, 'W': 1000, 'kcal/h': 860 };
-
 function TeljesitmenyAtvalto() {
   const [open, setOpen] = useState(true);
   const [fromUnit, setFromUnit] = useState<'kW' | 'BTU/h' | 'W' | 'kcal/h'>('kW');
@@ -53,13 +50,6 @@ function TeljesitmenyAtvalto() {
   const [inputVal, setInputVal] = useState('');
 
   const UNITS: Array<'kW' | 'BTU/h' | 'W' | 'kcal/h'> = ['kW', 'BTU/h', 'W', 'kcal/h'];
-
-  const result = useMemo(() => {
-    const v = parseFloat(inputVal);
-    if (isNaN(v) || v <= 0) return null;
-    const kw = v * TO_KW[fromUnit];
-    return (kw * FROM_KW[toUnit]).toFixed(3);
-  }, [inputVal, fromUnit, toUnit]);
 
   return (
     <View style={styles.card}>
@@ -116,7 +106,7 @@ function TeljesitmenyAtvalto() {
 
           {/* Result */}
           <View style={styles.resultBox}>
-            <ResultRow label="Eredmény" value={result ?? '—'} unit={toUnit} highlight={result ? HVAC_CYAN : undefined} />
+            <ResultRow label="Eredmény" value="—" unit={toUnit} />
           </View>
         </View>
       )}
@@ -131,21 +121,6 @@ function CopEer() {
   const [mode, setMode] = useState<'COP' | 'EER'>('COP');
   const [qInput, setQInput] = useState('');   // hőteljesítmény kW
   const [pInput, setPInput] = useState('');   // felvett teljesítmény kW
-
-  const result = useMemo(() => {
-    const q = parseFloat(qInput);
-    const p = parseFloat(pInput);
-    if (isNaN(q) || isNaN(p) || p <= 0) return null;
-    const val = q / p;
-    let rating = '';
-    if (mode === 'COP') {
-      rating = val >= 4.5 ? 'Kiváló (A++)' : val >= 3.5 ? 'Jó (A+)' : val >= 2.5 ? 'Megfelelő (A)' : 'Gyenge';
-    } else {
-      rating = val >= 4.0 ? 'Kiváló (A++)' : val >= 3.0 ? 'Jó (A+)' : val >= 2.0 ? 'Megfelelő (A)' : 'Gyenge';
-    }
-    const color = val >= 3.5 ? HVAC_GREEN : val >= 2.5 ? HVAC_YELLOW : HVAC_RED;
-    return { val: val.toFixed(2), rating, color };
-  }, [qInput, pInput, mode]);
 
   return (
     <View style={styles.card}>
@@ -195,8 +170,8 @@ function CopEer() {
 
           {/* Result */}
           <View style={styles.resultBox}>
-            <ResultRow label={mode} value={result?.val ?? '—'} highlight={result?.color} />
-            <ResultRow label="Minősítés" value={result?.rating ?? '—'} highlight={result?.color} />
+            <ResultRow label={mode} value="—" />
+            <ResultRow label="Minősítés" value="—" />
           </View>
         </View>
       )}
@@ -205,9 +180,6 @@ function CopEer() {
 }
 
 // ─── 3. Nyomáspróba ───────────────────────────────────────────────────────────
-
-const TO_BAR: Record<string, number> = { 'bar': 1, 'kPa': 0.01, 'Pa': 0.00001 };
-const FROM_BAR: Record<string, number> = { 'bar': 1, 'kPa': 100, 'Pa': 100000 };
 
 function Nyomaspróba() {
   const [open, setOpen] = useState(true);
@@ -218,25 +190,6 @@ function Nyomaspróba() {
   const [unit, setUnit] = useState<'bar' | 'Pa' | 'kPa'>('bar');
 
   const UNITS: Array<'bar' | 'Pa' | 'kPa'> = ['bar', 'kPa', 'Pa'];
-
-  const result = useMemo(() => {
-    const p1 = parseFloat(initialPressure);
-    const p2 = parseFloat(finalPressure);
-    const t  = parseFloat(duration);
-    const pt = parseFloat(testPressure);
-    if (isNaN(p1) || isNaN(p2)) return null;
-    const drop = p1 - p2; // in selected unit
-    const dropPerMin = (!isNaN(t) && t > 0) ? drop / t : null;
-    const passed = drop <= 0.1 * (isNaN(pt) ? p1 : pt); // ≤10% of test pressure
-    const statusText = passed ? '✓ Megfelelt' : '✗ Nem felelt meg';
-    const statusColor = passed ? HVAC_GREEN : HVAC_RED;
-    return {
-      drop: drop.toFixed(3),
-      dropPerMin: dropPerMin !== null ? dropPerMin.toFixed(4) : null,
-      statusText,
-      statusColor,
-    };
-  }, [initialPressure, finalPressure, duration, testPressure, unit]);
 
   return (
     <View style={styles.card}>
@@ -311,9 +264,9 @@ function Nyomaspróba() {
 
           {/* Result */}
           <View style={styles.resultBox}>
-            <ResultRow label="Nyomásesés" value={result?.drop ?? '—'} unit={unit} />
-            <ResultRow label="Nyomásesés / perc" value={result?.dropPerMin ?? '—'} unit={result?.dropPerMin ? `${unit}/perc` : undefined} />
-            <ResultRow label="Eredmény" value={result?.statusText ?? '—'} highlight={result?.statusColor} />
+            <ResultRow label="Nyomásesés" value="—" unit={unit} />
+            <ResultRow label="Nyomásesés / perc" value="—" unit={`${unit}/perc`} />
+            <ResultRow label="Eredmény" value="—" />
           </View>
         </View>
       )}
