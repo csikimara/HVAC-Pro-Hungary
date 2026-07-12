@@ -1,6 +1,7 @@
 import React from 'react';
-import { ScrollView, View, Text } from 'react-native';
-import { Star } from 'lucide-react-native';
+import { ScrollView, View, Text, TouchableOpacity } from 'react-native';
+import { Star, ChevronLeft } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_TEXT = '#E8ECF0';
@@ -10,18 +11,42 @@ const ACCENT = '#A855F7';
 
 export default function KedvencekScreen() {
   console.log('[Kedvencek] Screen mounted');
+  const router = useRouter();
+  const backBtn = {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    marginBottom: 16,
+    alignSelf: 'flex-start' as const,
+  };
+  const backBtnText = {
+    fontSize: 13,
+    color: HVAC_BLUE,
+    fontWeight: '500' as const,
+  };
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       style={{ flex: 1, backgroundColor: HVAC_BG }}
       contentContainerStyle={{
         flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
         paddingBottom: 100,
         paddingHorizontal: 24,
+        paddingTop: 16,
       }}
     >
+      <TouchableOpacity
+        style={backBtn}
+        onPress={() => {
+          console.log('[Kedvencek] Vissza a kezdőlapra');
+          router.push('/(tabs)/(home)');
+        }}
+        activeOpacity={0.7}
+      >
+        <ChevronLeft size={16} color={HVAC_BLUE} />
+        <Text style={backBtnText}>Vissza a kezdőlapra</Text>
+      </TouchableOpacity>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <View
         style={{
           width: 80,
@@ -52,6 +77,7 @@ export default function KedvencekScreen() {
         <Text style={{ fontSize: 13, fontWeight: '600', color: HVAC_BLUE }}>
           Hamarosan elérhető
         </Text>
+      </View>
       </View>
     </ScrollView>
   );

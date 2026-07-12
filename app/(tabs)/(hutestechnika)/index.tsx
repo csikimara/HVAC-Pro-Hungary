@@ -8,7 +8,8 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
 } from 'react-native';
-import { ChevronDown, ChevronUp, Snowflake, BarChart2, FlaskConical } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ChevronLeft, Snowflake, BarChart2, FlaskConical } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -415,6 +416,19 @@ function ResultRow({ label, value, unit, highlight }: { label: string; value: st
 
 export default function HutestechnikaScreen() {
   const isIOS = process.env.EXPO_OS === 'ios';
+  const router = useRouter();
+  const backBtn = {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    marginBottom: 16,
+    alignSelf: 'flex-start' as const,
+  };
+  const backBtnText = {
+    fontSize: 13,
+    color: HVAC_BLUE,
+    fontWeight: '500' as const,
+  };
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={isIOS ? 'padding' : 'height'}>
       <ScrollView
@@ -423,6 +437,17 @@ export default function HutestechnikaScreen() {
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
       >
+        <TouchableOpacity
+          style={backBtn}
+          onPress={() => {
+            console.log('[Hűtéstechnika] Vissza a kezdőlapra');
+            router.push('/(tabs)/(home)');
+          }}
+          activeOpacity={0.7}
+        >
+          <ChevronLeft size={16} color={HVAC_BLUE} />
+          <Text style={backBtnText}>Vissza a kezdőlapra</Text>
+        </TouchableOpacity>
         <Text style={styles.screenTitle}>Hűtéstechnika</Text>
         <BtuKwConverter />
         <CopEerCalculator />
