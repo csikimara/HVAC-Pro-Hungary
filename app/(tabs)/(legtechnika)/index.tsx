@@ -8,7 +8,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
 } from 'react-native';
-import { ChevronDown, ChevronUp, Ruler, TrendingDown } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Pipette, Ruler, TrendingDown } from 'lucide-react-native';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -308,6 +308,213 @@ function PressureDropTool() {
   );
 }
 
+// ─── Pipe Sizing ──────────────────────────────────────────────────────────────
+
+const DN_LIST = [15, 20, 25, 32, 40, 50, 65, 80, 100, 125, 150, 200];
+
+function getPipeVelocityColor(v: number): string {
+  if (v <= 1.5) return HVAC_GREEN;
+  if (v <= 2.5) return HVAC_YELLOW;
+  return HVAC_RED;
+}
+
+function PipeSizingTool() {
+  const [open, setOpen] = useState(true);
+  const [pipeType, setPipeType] = useState<'kerek' | 'negyszog'>('kerek');
+  const [massFlow, setMassFlow] = useState('');
+  const [maxVelocity, setMaxVelocity] = useState('1.5');
+  const [density, setDensity] = useState('1000');
+  const [widthA, setWidthA] = useState('');
+  const [heightB, setHeightB] = useState('');
+
+  type PipeResult = {
+    calcDiameter: string;
+    recommendedDN: string;
+    actualVelocity: string;
+    velocityColor: string;
+    crossSection: string;
+    eqDiameter: string;
+    rectVelocity: string;
+    rectVelocityColor: string;
+  };
+
+  const [result, setResult] = useState<PipeResult | null>(null);
+
+  function calculate() {
+    console.log('[Légtechnika] Csőméretezés számítás, ṁ:', massFlow, 'típus:', pipeType, 'ρ:', density);
+    const mVal = parseFloat(massFlow);
+    const rhoVal = parseFloat(density);
+
+    if (pipeType === 'kerek') {
+      const vVal = parseFloat(maxVelocity);
+      if (isNaN(mVal) || isNaN(vVal) || isNaN(rhoVal) || vVal <= 0 || rhoVal <= 0) {
+        setResult(null);
+        return;
+      }
+      const A = mVal / (rhoVal * vVal * 3600);
+      const D = Math.sqrt((4 * A) / Math.PI) * 1000;
+      const dn = DN_LIST.find(d => d >= D) ?? DN_LIST[DN_LIST.length - 1];
+      const areaDN = Math.PI * Math.pow(dn / 1000, 2) / 4;
+      const vActual = mVal / (rhoVal * areaDN * 3600);
+      setResult({
+        calcDiameter: D.toFixed(1),
+        recommendedDN: dn.toString(),
+        actualVelocity: vActual.toFixed(2),
+        velocityColor: getPipeVelocityColor(vActual),
+        crossSection: '—',
+        eqDiameter: '—',
+        rectVelocity: '—',
+        rectVelocityColor: HVAC_TEXT,
+      });
+    } else {
+      const aVal = parseFloat(widthA);
+      const bVal = parseFloat(heightB);
+      if (isNaN(mVal) || isNaN(aVal) || isNaN(bVal) || isNaN(rhoVal) || aVal <= 0 || bVal <= 0 || rhoVal <= 0) {
+        setResult(null);
+        return;
+      }
+      const area = (aVal * bVal) / 1_000_000;
+      const velocity = mVal / (rhoVal * area * 3600);
+      const De = 1.3 * Math.pow(aVal * bVal, 0.625) / Math.pow(aVal + bVal, 0.25);
+      setResult({
+        calcDiameter: '—',
+        recommendedDN: '—',
+        actualVelocity: '—',
+        velocityColor: HVAC_TEXT,
+        crossSection: (area * 10000).toFixed(2),
+        eqDiameter: De.toFixed(1),
+        rectVelocity: velocity.toFixed(2),
+        rectVelocityColor: getPipeVelocityColor(velocity),
+      });
+    }
+  }
+
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => {
+          console.log('[Légtechnika] Csőméretezés kártya toggled, open:', !open);
+          setOpen(!open);
+        }}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeaderLeft}>
+          <Pipette size={20} color={HVAC_BLUE} />
+          <Text style={styles.cardTitle}>Csőméretezés</Text>
+        </View>
+        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+
+      {open && (
+        <View style={styles.cardBody}>
+          <View style={styles.segmentRow}>
+            {(['kerek', 'negyszog'] as const).map(t => (
+              <TouchableOpacity
+                key={t}
+                style={[styles.segmentBtn, pipeType === t && styles.segmentBtnActive]}
+                onPress={() => {
+                  console.log('[Légtechnika] Cső típus:', t);
+                  setPipeType(t);
+                  setResult(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, pipeType === t && styles.segmentTextActive]}>
+                  {t === 'kerek' ? 'Kerek' : 'Négyszög'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Tömegáram ṁ (kg/h)</Text>
+          <TextInput
+            style={styles.input}
+            value={massFlow}
+            onChangeText={setMassFlow}
+            keyboardType="numeric"
+            placeholder="pl. 500"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          {pipeType === 'kerek' && (
+            <>
+              <Text style={styles.label}>Max. sebesség v (m/s)</Text>
+              <TextInput
+                style={styles.input}
+                value={maxVelocity}
+                onChangeText={setMaxVelocity}
+                keyboardType="numeric"
+                placeholder="1.5"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+            </>
+          )}
+
+          {pipeType === 'negyszog' && (
+            <>
+              <Text style={styles.label}>Szélesség a (mm)</Text>
+              <TextInput
+                style={styles.input}
+                value={widthA}
+                onChangeText={setWidthA}
+                keyboardType="numeric"
+                placeholder="pl. 50"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+              <Text style={styles.label}>Magasság b (mm)</Text>
+              <TextInput
+                style={styles.input}
+                value={heightB}
+                onChangeText={setHeightB}
+                keyboardType="numeric"
+                placeholder="pl. 30"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+            </>
+          )}
+
+          <Text style={styles.label}>Közeg sűrűsége ρ (kg/m³)</Text>
+          <TextInput
+            style={styles.input}
+            value={density}
+            onChangeText={setDensity}
+            keyboardType="numeric"
+            placeholder="1000"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          <TouchableOpacity
+            style={styles.calcBtn}
+            onPress={calculate}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.calcBtnText}>Kiszámít</Text>
+          </TouchableOpacity>
+
+          {result && (
+            <View style={styles.resultBox}>
+              {pipeType === 'kerek' ? (
+                <>
+                  <ResultRow label="Számított átmérő" value={result.calcDiameter} unit="mm" />
+                  <ResultRow label="Ajánlott DN méret" value={result.recommendedDN} unit="DN" highlight={HVAC_BLUE} />
+                  <ResultRow label="Tényleges sebesség" value={result.actualVelocity} unit="m/s" highlight={result.velocityColor} />
+                </>
+              ) : (
+                <>
+                  <ResultRow label="Keresztmetszet" value={result.crossSection} unit="cm²" />
+                  <ResultRow label="Ekvivalens átmérő" value={result.eqDiameter} unit="mm" />
+                  <ResultRow label="Tényleges sebesség" value={result.rectVelocity} unit="m/s" highlight={result.rectVelocityColor} />
+                </>
+              )}
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── Shared ResultRow ─────────────────────────────────────────────────────────
 
 function ResultRow({ label, value, unit, highlight }: { label: string; value: string; unit: string; highlight?: string }) {
@@ -338,6 +545,7 @@ export default function LegtechnikaScreen() {
         <Text style={styles.screenTitle}>Légtechnika</Text>
         <DuctSizingTool />
         <PressureDropTool />
+        <PipeSizingTool />
       </ScrollView>
     </KeyboardAvoidingView>
   );
