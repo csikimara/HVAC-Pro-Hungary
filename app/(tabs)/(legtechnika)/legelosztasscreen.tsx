@@ -32,6 +32,49 @@ type Branch = {
   fittings: string;
 };
 
+// ─── Branch Calculation ───────────────────────────────────────────────────────
+
+const RHO = 1.2;   // kg/m³ air density
+const LAMBDA = 0.02; // default friction factor
+
+type BranchResult = {
+  velocity: number;       // m/s
+  straightDrop: number;   // Pa — Darcy-Weisbach over length
+  fittingDrop: number;    // Pa — ΣK × ½ρv²
+  totalDrop: number;      // Pa — straight + fitting
+  velocityColor: string;
+  dropColor: string;
+};
+
+function calcBranch(branch: Branch): BranchResult | null {
+  const Q_raw = parseFloat(branch.airflow);
+  const D_raw = parseFloat(branch.ductSize);
+  const L_raw = parseFloat(branch.length);
+  const K_raw = parseFloat(branch.fittings);
+
+  if (isNaN(Q_raw) || Q_raw <= 0) return null;
+  if (isNaN(D_raw) || D_raw <= 0) return null;
+
+  const Q = Q_raw / 3600;                          // m³/s
+  const D = D_raw / 1000;                          // m
+  const area = Math.PI * Math.pow(D, 2) / 4;      // m²
+  const v = Q / area;                              // m/s
+
+  const L = isNaN(L_raw) || L_raw <= 0 ? 0 : L_raw;
+  const K = isNaN(K_raw) || K_raw < 0 ? 0 : K_raw;
+
+  const dynP = 0.5 * RHO * Math.pow(v, 2);        // Pa dynamic pressure
+  const R = LAMBDA * RHO * Math.pow(v, 2) / (2 * D); // Pa/m specific drop
+  const straightDrop = R * L;
+  const fittingDrop = K * dynP;
+  const totalDrop = straightDrop + fittingDrop;
+
+  const velocityColor = v <= 3.5 ? HVAC_GREEN : v <= 5 ? HVAC_YELLOW : HVAC_RED;
+  const dropColor = totalDrop <= 30 ? HVAC_GREEN : totalDrop <= 60 ? HVAC_YELLOW : HVAC_RED;
+
+  return { velocity: v, straightDrop, fittingDrop, totalDrop, velocityColor, dropColor };
+}
+
 // ─── Unit Header Card ─────────────────────────────────────────────────────────
 
 const FUJITSU_MODELS = [
@@ -361,17 +404,37 @@ function BranchCard({ branch, onUpdate, onDelete }: {
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
-          {/* Result placeholder */}
-          <View style={styles.resultBox}>
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Légsebesség</Text>
-              <Text style={styles.resultValue}>— m/s</Text>
-            </View>
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Nyomásesés</Text>
-              <Text style={styles.resultValue}>— Pa</Text>
-            </View>
-          </View>
+          {(() => {
+            const r = calcBranch(branch);
+            return (
+              <View style={styles.resultBox}>
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>Légsebesség</Text>
+                  <Text style={[styles.resultValue, { color: r ? r.velocityColor : HVAC_TEXT_SECONDARY }]}>
+                    {r ? `${r.velocity.toFixed(2)} m/s` : '—'}
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>Egyenes szakasz</Text>
+                  <Text style={styles.resultValue}>
+                    {r ? `${r.straightDrop.toFixed(1)} Pa` : '—'}
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>Idomveszteség</Text>
+                  <Text style={styles.resultValue}>
+                    {r ? `${r.fittingDrop.toFixed(1)} Pa` : '—'}
+                  </Text>
+                </View>
+                <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+                  <Text style={[styles.resultLabel, { fontWeight: '600', color: HVAC_TEXT }]}>Ág nyomásesése</Text>
+                  <Text style={[styles.resultValue, { color: r ? r.dropColor : HVAC_TEXT_SECONDARY }]}>
+                    {r ? `${r.totalDrop.toFixed(1)} Pa` : '—'}
+                  </Text>
+                </View>
+              </View>
+            );
+          })()}
         </View>
       )}
     </View>
