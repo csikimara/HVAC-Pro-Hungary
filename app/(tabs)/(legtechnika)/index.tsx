@@ -541,6 +541,10 @@ function PressureDropTool() {
             </View>
           )}
 
+          <Text style={styles.noteText}>
+            Az idom K-értékek tájékoztató jellegűek. A tényleges veszteség a geometriától és a gyártótól függ.
+          </Text>
+
           <View style={styles.resultBox}>
             <ResultRow label="Légsebesség" value={result?.velocity ?? '—'} unit="m/s" highlight={result?.velocityColor} />
             <ResultRow label="Fajlagos nyomásesés" value={result?.specificDrop ?? '—'} unit="Pa/m" highlight={result?.specificColor} />
