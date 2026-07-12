@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ChevronLeft, ChevronDown, ChevronUp, Wind, Plus, Trash2, AlertCircle } from 'lucide-react-native';
+import { ChevronLeft, ChevronDown, ChevronUp, Wind, Plus, Trash2, Copy, AlertCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
@@ -317,10 +317,11 @@ function UnitCard({
 
 // ─── Branch Card ──────────────────────────────────────────────────────────────
 
-function BranchCard({ branch, onUpdate, onDelete }: {
+function BranchCard({ branch, onUpdate, onDelete, onDuplicate }: {
   branch: Branch;
   onUpdate: (updated: Branch) => void;
   onDelete: () => void;
+  onDuplicate: () => void;
 }) {
   const [open, setOpen] = useState(true);
 
@@ -343,6 +344,16 @@ function BranchCard({ branch, onUpdate, onDelete }: {
           <Text style={styles.cardTitle}>{branch.name || 'Névtelen ág'}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity
+            onPress={() => {
+              console.log('[Légelosztás] Ág duplikálása gomb megnyomva, id:', branch.id);
+              onDuplicate();
+            }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Copy size={16} color={HVAC_BLUE} />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
               console.log('[Légelosztás] Ág törlés gomb megnyomva, id:', branch.id);
@@ -630,6 +641,21 @@ export default function LegelosztasScreen() {
     setBranches(prev => prev.filter(b => b.id !== id));
   }
 
+  function duplicateBranch(id: string) {
+    const source = branches.find(b => b.id === id);
+    if (!source) return;
+    const newId = Date.now().toString();
+    const newName = `${source.name} (másolat)`;
+    const duplicate: Branch = { ...source, id: newId, name: newName };
+    setBranches(prev => {
+      const idx = prev.findIndex(b => b.id === id);
+      const next = [...prev];
+      next.splice(idx + 1, 0, duplicate);
+      return next;
+    });
+    console.log('[Légelosztás] Ág duplikálva, forrás id:', id, 'új id:', newId);
+  }
+
   const backBtn = {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
@@ -681,6 +707,7 @@ export default function LegelosztasScreen() {
             branch={branch}
             onUpdate={updated => updateBranch(branch.id, updated)}
             onDelete={() => deleteBranch(branch.id)}
+            onDuplicate={() => duplicateBranch(branch.id)}
           />
         ))}
 
