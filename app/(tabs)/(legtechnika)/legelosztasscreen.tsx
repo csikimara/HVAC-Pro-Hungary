@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ChevronLeft, ChevronDown, ChevronUp, Wind, Plus, Trash2, Copy, AlertCircle } from 'lucide-react-native';
+import { ChevronLeft, ChevronDown, ChevronUp, Wind, Plus, Minus, Trash2, Copy, AlertCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
@@ -36,6 +36,19 @@ type Branch = {
 
 const RHO = 1.2;   // kg/m³ air density
 const LAMBDA = 0.02; // default friction factor
+
+const BRANCH_FITTINGS: { label: string; K: number }[] = [
+  { label: 'Könyök 90° (R/D=1)',    K: 0.3  },
+  { label: 'Könyök 90° (R/D=0.5)',  K: 0.9  },
+  { label: 'Könyök 45°',            K: 0.15 },
+  { label: 'T-idom (egyenes)',       K: 0.1  },
+  { label: 'T-idom (elágazás)',      K: 1.0  },
+  { label: 'Szűkítés (fokozatos)',   K: 0.05 },
+  { label: 'Bővítés (fokozatos)',    K: 0.07 },
+  { label: 'Belépés (éles perem)',   K: 0.5  },
+  { label: 'Kilépés (szabad)',       K: 1.0  },
+  { label: 'Visszacsapó szelep',     K: 2.5  },
+];
 
 type BranchResult = {
   velocity: number;       // m/s
@@ -315,6 +328,148 @@ function UnitCard({
   );
 }
 
+// ─── Fittings Helper ─────────────────────────────────────────────────────────
+
+function FittingsHelper({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
+  // qty[i] = how many of BRANCH_FITTINGS[i] are selected
+  const [qty, setQty] = useState<number[]>(BRANCH_FITTINGS.map(() => 0));
+
+  const autoK = qty.reduce((sum, q, i) => sum + q * BRANCH_FITTINGS[i].K, 0);
+
+  function setQtyAt(idx: number, delta: number) {
+    setQty(prev => {
+      const next = [...prev];
+      next[idx] = Math.max(0, next[idx] + delta);
+      const newK = next.reduce((s, q, i) => s + q * BRANCH_FITTINGS[i].K, 0);
+      if (!manualMode) onChange(newK > 0 ? newK.toFixed(2) : '');
+      console.log('[Légelosztás] Idom qty változás:', BRANCH_FITTINGS[idx].label, 'qty:', next[idx], 'autoK:', newK.toFixed(2));
+      return next;
+    });
+  }
+
+  function toggleManual() {
+    setManualMode(m => {
+      if (!m) {
+        // switching to manual — keep current value
+        console.log('[Légelosztás] Manuális K mód bekapcsolva');
+      } else {
+        // switching back to auto — write autoK
+        onChange(autoK > 0 ? autoK.toFixed(2) : '');
+        console.log('[Légelosztás] Automatikus K mód visszaállítva, autoK:', autoK.toFixed(2));
+      }
+      return !m;
+    });
+  }
+
+  const totalItems = qty.reduce((s, q) => s + q, 0);
+
+  return (
+    <View style={{ marginBottom: 12 }}>
+      {/* Header row */}
+      <TouchableOpacity
+        style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 0 }]}
+        onPress={() => {
+          console.log('[Légelosztás] Idomok segéd toggled:', !open);
+          setOpen(o => !o);
+        }}
+        activeOpacity={0.7}
+      >
+        <Text style={{ color: totalItems > 0 ? HVAC_TEXT : HVAC_TEXT_SECONDARY, fontSize: 15 }}>
+          {totalItems > 0
+            ? `${totalItems} idom · K = ${autoK.toFixed(2)}`
+            : 'Idomok kiválasztása…'}
+        </Text>
+        {open ? <ChevronUp size={16} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={16} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+
+      {open && (
+        <View style={{ borderWidth: 1, borderTopWidth: 0, borderColor: HVAC_BORDER, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, overflow: 'hidden', marginBottom: 0 }}>
+          {BRANCH_FITTINGS.map((f, idx) => (
+            <View
+              key={idx}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                backgroundColor: qty[idx] > 0 ? HVAC_BLUE + '18' : idx % 2 === 0 ? HVAC_SURFACE : HVAC_CARD,
+                borderBottomWidth: idx < BRANCH_FITTINGS.length - 1 ? 1 : 0,
+                borderBottomColor: HVAC_BORDER,
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, color: qty[idx] > 0 ? HVAC_TEXT : HVAC_TEXT_SECONDARY }}>{f.label}</Text>
+                <Text style={{ fontSize: 11, color: HVAC_TEXT_SECONDARY, marginTop: 1 }}>K = {f.K}</Text>
+              </View>
+              {/* Stepper */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => setQtyAt(idx, -1)}
+                  activeOpacity={0.7}
+                  style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: HVAC_SURFACE, borderWidth: 1, borderColor: HVAC_BORDER, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Minus size={14} color={HVAC_TEXT_SECONDARY} />
+                </TouchableOpacity>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: qty[idx] > 0 ? HVAC_BLUE : HVAC_TEXT_SECONDARY, minWidth: 20, textAlign: 'center' }}>
+                  {qty[idx]}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setQtyAt(idx, 1)}
+                  activeOpacity={0.7}
+                  style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: HVAC_BLUE, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Plus size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+
+          {/* Summary + manual toggle */}
+          <View style={{ padding: 12, backgroundColor: HVAC_CARD, borderTopWidth: 1, borderTopColor: HVAC_BORDER }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY }}>Összesített K-érték</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: HVAC_BLUE }}>{autoK.toFixed(2)}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={toggleManual}
+              activeOpacity={0.7}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
+              <View style={{
+                width: 16, height: 16, borderRadius: 4, borderWidth: 1.5,
+                borderColor: manualMode ? HVAC_BLUE : HVAC_BORDER,
+                backgroundColor: manualMode ? HVAC_BLUE : 'transparent',
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                {manualMode && <Text style={{ fontSize: 10, color: '#fff', fontWeight: '700' }}>✓</Text>}
+              </View>
+              <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY }}>Manuális K-érték megadása</Text>
+            </TouchableOpacity>
+            {manualMode && (
+              <TextInput
+                style={[styles.input, { marginTop: 10, marginBottom: 0 }]}
+                value={value}
+                onChangeText={v => { console.log('[Légelosztás] Manuális K input:', v); onChange(v); }}
+                keyboardType="numeric"
+                placeholder="pl. 1.5"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+            )}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── Branch Card ──────────────────────────────────────────────────────────────
 
 function BranchCard({ branch, onUpdate, onDelete, onDuplicate }: {
@@ -405,14 +560,10 @@ function BranchCard({ branch, onUpdate, onDelete, onDuplicate }: {
             placeholder="pl. 160"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
-          <Text style={styles.label}>Idomok (K-értékek összege)</Text>
-          <TextInput
-            style={styles.input}
+          <Text style={styles.label}>Idomok</Text>
+          <FittingsHelper
             value={branch.fittings}
-            onChangeText={v => update('fittings', v)}
-            keyboardType="numeric"
-            placeholder="pl. 1.5"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
+            onChange={v => update('fittings', v)}
           />
 
           {(() => {
