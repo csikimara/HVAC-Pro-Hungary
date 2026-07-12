@@ -676,14 +676,66 @@ function TulhevitesUtohutes() {
 
 function HutokörGyorsEllenorzes() {
   const [open, setOpen] = useState(true);
-  const [suctionPressure, setSuctionPressure] = useState('');
-  const [dischargePressure, setDischargePressure] = useState('');
-  const [suctionLineTemp, setSuctionLineTemp] = useState('');
-  const [currentDraw, setCurrentDraw] = useState('');
+  const [shInput, setShInput] = useState('');
+  const [scInput, setScInput] = useState('');
+
+  const result = useMemo(() => {
+    const sh = parseFloat(shInput);
+    const sc = parseFloat(scInput);
+    const hasSH = !isNaN(sh);
+    const hasSC = !isNaN(sc);
+    if (!hasSH && !hasSC) return null;
+
+    // Classify SH
+    const shLow  = hasSH && sh < 5;
+    const shOk   = hasSH && sh >= 5 && sh <= 12;
+    const shHigh = hasSH && sh > 12;
+
+    // Classify SC
+    const scLow  = hasSC && sc < 3;
+    const scOk   = hasSC && sc >= 3 && sc <= 10;
+    const scHigh = hasSC && sc > 10;
+
+    let diagnosis: string;
+    let color: string;
+
+    if (hasSH && hasSC) {
+      if (shHigh && scLow)       { diagnosis = 'Valószínű alultöltés'; color = HVAC_RED; }
+      else if (shLow && scHigh)  { diagnosis = 'Valószínű túltöltés'; color = HVAC_RED; }
+      else if (shLow && scLow)   { diagnosis = 'Expanziós / adagoló probléma'; color = HVAC_YELLOW; }
+      else if (shHigh && scHigh) { diagnosis = 'Légáram vagy hőleadás probléma'; color = HVAC_YELLOW; }
+      else if (shOk && scOk)     { diagnosis = 'Nagyjából rendben'; color = HVAC_GREEN; }
+      else if (shOk && scLow)    { diagnosis = 'SC alacsony – ellenőrizendő'; color = HVAC_YELLOW; }
+      else if (shOk && scHigh)   { diagnosis = 'SC magas – ellenőrizendő'; color = HVAC_YELLOW; }
+      else if (shLow && scOk)    { diagnosis = 'SH alacsony – nedves gőz kockázat'; color = HVAC_YELLOW; }
+      else if (shHigh && scOk)   { diagnosis = 'SH magas – ellenőrizendő'; color = HVAC_YELLOW; }
+      else                       { diagnosis = 'Ellenőrizendő'; color = HVAC_YELLOW; }
+    } else if (hasSH) {
+      if (sh < 0)       { diagnosis = 'Nedves gőz – veszélyes!'; color = HVAC_RED; }
+      else if (shLow)   { diagnosis = 'SH alacsony – nedves gőz kockázat'; color = HVAC_YELLOW; }
+      else if (shOk)    { diagnosis = 'SH megfelelő'; color = HVAC_GREEN; }
+      else              { diagnosis = 'SH magas – ellenőrizendő'; color = HVAC_YELLOW; }
+    } else {
+      if (scLow)        { diagnosis = 'SC alacsony – ellenőrizendő'; color = HVAC_YELLOW; }
+      else if (scOk)    { diagnosis = 'SC megfelelő'; color = HVAC_GREEN; }
+      else              { diagnosis = 'SC magas – ellenőrizendő'; color = HVAC_YELLOW; }
+    }
+
+    return {
+      sh: hasSH ? sh.toFixed(1) : null,
+      sc: hasSC ? sc.toFixed(1) : null,
+      diagnosis,
+      color,
+    };
+  }, [shInput, scInput]);
 
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Hűtéstechnika] Hűtőkör gyors ellenőrzés toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Hűtéstechnika] Hűtőkör gyors ellenőrzés toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Activity size={20} color={HVAC_RED} />
           <Text style={styles.cardTitle}>Hűtőkör gyors ellenőrzés</Text>
@@ -693,55 +745,34 @@ function HutokörGyorsEllenorzes() {
 
       {open && (
         <View style={styles.cardBody}>
-          <Text style={styles.label}>Szívónyomás (bar)</Text>
+          <Text style={styles.label}>Túlhevítés – SH (K)</Text>
           <TextInput
             style={styles.inputLarge}
-            value={suctionPressure}
-            onChangeText={v => { console.log('[Hűtéstechnika] Szívónyomás input:', v); setSuctionPressure(v); }}
+            value={shInput}
+            onChangeText={v => { console.log('[Hűtéstechnika] SH input:', v); setShInput(v); }}
             keyboardType="numeric"
-            placeholder="pl. 5.5"
+            placeholder="pl. 8"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
-          <Text style={styles.label}>Nyomónyomás (bar)</Text>
+          <Text style={styles.label}>Utóhűtés – SC (K)</Text>
           <TextInput
             style={styles.inputLarge}
-            value={dischargePressure}
-            onChangeText={v => { console.log('[Hűtéstechnika] Nyomónyomás input:', v); setDischargePressure(v); }}
+            value={scInput}
+            onChangeText={v => { console.log('[Hűtéstechnika] SC input:', v); setScInput(v); }}
             keyboardType="numeric"
-            placeholder="pl. 22"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
-
-          <Text style={styles.label}>Szívócső hőmérséklet (°C)</Text>
-          <TextInput
-            style={styles.inputLarge}
-            value={suctionLineTemp}
-            onChangeText={v => { console.log('[Hűtéstechnika] Szívócső hőmérséklet input:', v); setSuctionLineTemp(v); }}
-            keyboardType="numeric"
-            placeholder="pl. 15"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
-
-          <Text style={styles.label}>Kompresszor áramfelvétel (A)</Text>
-          <TextInput
-            style={styles.inputLarge}
-            value={currentDraw}
-            onChangeText={v => { console.log('[Hűtéstechnika] Kompresszor áramfelvétel input:', v); setCurrentDraw(v); }}
-            keyboardType="numeric"
-            placeholder="pl. 8.5"
+            placeholder="pl. 5"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
           <View style={styles.resultBox}>
-            <ResultRow label="Kompressziós arány" value="—" />
-            <ResultRow label="Szívócső túlhevítés" value="—" />
-            <ResultRow label="Áramfelvétel értékelés" value="—" />
-            <ResultRow label="Összesített állapot" value="—" />
+            <ResultRow label="SH" value={result?.sh ?? '—'} unit={result?.sh ? 'K' : undefined} />
+            <ResultRow label="SC" value={result?.sc ?? '—'} unit={result?.sc ? 'K' : undefined} />
+            <ResultRow label="Diagnózis" value={result?.diagnosis ?? '—'} highlight={result?.color} />
           </View>
 
           <Text style={[styles.noteText, { marginTop: 10 }]}>
-            Diagnosztikai logika hamarosan elérhető.
+            A diagnózis az SH és SC értékek kombinációján alapul. Pontos értékeléshez mérje meg mindkét értéket a PT táblával.
           </Text>
         </View>
       )}
