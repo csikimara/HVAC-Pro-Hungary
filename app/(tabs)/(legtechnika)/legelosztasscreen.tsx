@@ -465,11 +465,57 @@ function SummaryCard({
     ? HVAC_TEXT_SECONDARY
     : usableEsp >= 0 ? HVAC_GREEN : HVAC_RED;
 
+  // Branch aggregation
+  const branchResults = branches.map(b => ({ branch: b, result: calcBranch(b) }));
+  const calculatedBranches = branchResults.filter(br => br.result !== null);
+
+  const totalAirflow = branches.reduce((sum, b) => {
+    const q = parseFloat(b.airflow);
+    return sum + (isNaN(q) ? 0 : q);
+  }, 0);
+
+  const criticalBranch = calculatedBranches.length > 0
+    ? calculatedBranches.reduce((max, br) =>
+        br.result!.totalDrop > max.result!.totalDrop ? br : max
+      )
+    : null;
+
+  const criticalDrop = criticalBranch?.result?.totalDrop ?? null;
+
+  // ESP check
+  type CheckState = 'ok' | 'warning' | 'fail' | 'nodata';
+  let checkState: CheckState = 'nodata';
+  let checkMessage = '—';
+  let checkColor = HVAC_TEXT_SECONDARY;
+
+  if (criticalDrop !== null && usableEsp !== null) {
+    const margin = usableEsp - criticalDrop;
+    if (margin >= 5) {
+      checkState = 'ok';
+      checkMessage = `✓ Rendben – ${margin.toFixed(1)} Pa tartalék`;
+      checkColor = HVAC_GREEN;
+    } else if (margin >= 0) {
+      checkState = 'warning';
+      checkMessage = `⚠ Szűk tartalék – csak ${margin.toFixed(1)} Pa maradt`;
+      checkColor = HVAC_YELLOW;
+    } else {
+      checkState = 'fail';
+      checkMessage = `✗ Túllépés – ${Math.abs(margin).toFixed(1)} Pa hiány`;
+      checkColor = HVAC_RED;
+    }
+  } else if (criticalDrop !== null && usableEsp === null) {
+    checkMessage = 'Add meg az ESP értéket az ellenőrzéshez';
+    checkColor = HVAC_TEXT_SECONDARY;
+  }
+
   const branchCountText = `${branches.length} db`;
   const espText = hasEsp ? `${esp} Pa` : '—';
   const filterText = !isNaN(filter) && filter > 0 ? `${filter} Pa` : '—';
   const damperText = !isNaN(damper) && damper > 0 ? `${damper} Pa` : '—';
   const usableEspText = usableEsp !== null ? `${usableEsp.toFixed(1)} Pa` : '—';
+  const totalAirflowText = totalAirflow > 0 ? `${totalAirflow.toFixed(0)} m³/h` : '—';
+  const criticalDropText = criticalDrop !== null ? `${criticalDrop.toFixed(1)} Pa` : '—';
+  const criticalNameText = criticalBranch ? ` (${criticalBranch.branch.name || 'névtelen'})` : '';
 
   return (
     <View style={[styles.card, { borderColor: HVAC_BORDER }]}>
@@ -484,6 +530,10 @@ function SummaryCard({
           <View style={styles.resultRow}>
             <Text style={styles.resultLabel}>Ágak száma</Text>
             <Text style={styles.resultValue}>{branchCountText}</Text>
+          </View>
+          <View style={styles.resultRow}>
+            <Text style={styles.resultLabel}>Összes légszállítás</Text>
+            <Text style={styles.resultValue}>{totalAirflowText}</Text>
           </View>
           <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
             <Text style={styles.resultLabel}>Rendelkezésre álló ESP</Text>
@@ -501,17 +551,17 @@ function SummaryCard({
             <Text style={[styles.resultLabel, { fontWeight: '600', color: HVAC_TEXT }]}>Felhasználható csatorna ESP</Text>
             <Text style={[styles.resultValue, { color: usableEspColor }]}>{usableEspText}</Text>
           </View>
-          <View style={styles.resultRow}>
-            <Text style={styles.resultLabel}>Összes légszállítás</Text>
-            <Text style={styles.resultValue}>— m³/h</Text>
+          <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+            <Text style={styles.resultLabel}>Kritikus ág{criticalNameText}</Text>
+            <Text style={[styles.resultValue, { color: criticalDrop !== null ? (criticalDrop > (usableEsp ?? Infinity) ? HVAC_RED : HVAC_TEXT) : HVAC_TEXT_SECONDARY }]}>
+              {criticalDropText}
+            </Text>
           </View>
-          <View style={styles.resultRow}>
-            <Text style={styles.resultLabel}>Kritikus ág nyomásesése</Text>
-            <Text style={styles.resultValue}>— Pa</Text>
-          </View>
-          <View style={styles.resultRow}>
-            <Text style={styles.resultLabel}>ESP ellenőrzés</Text>
-            <Text style={[styles.resultValue, { color: HVAC_TEXT_SECONDARY }]}>—</Text>
+          <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+            <Text style={[styles.resultLabel, { fontWeight: '600', color: HVAC_TEXT }]}>ESP ellenőrzés</Text>
+            <Text style={[styles.resultValue, { color: checkColor, flexShrink: 1, textAlign: 'right' }]}>
+              {checkMessage}
+            </Text>
           </View>
         </View>
         <Text style={styles.noteText}>
