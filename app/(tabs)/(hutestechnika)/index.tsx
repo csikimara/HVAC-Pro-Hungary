@@ -150,12 +150,30 @@ function TeljesitmenyAtvalto() {
 function CopEer() {
   const [open, setOpen] = useState(true);
   const [mode, setMode] = useState<'COP' | 'EER'>('COP');
-  const [qInput, setQInput] = useState('');   // hőteljesítmény kW
-  const [pInput, setPInput] = useState('');   // felvett teljesítmény kW
+  const [qInput, setQInput] = useState('');
+  const [pInput, setPInput] = useState('');
+
+  const result = useMemo(() => {
+    const q = parseFloat(qInput);
+    const p = parseFloat(pInput);
+    if (isNaN(q) || isNaN(p) || p <= 0 || q <= 0) return null;
+    const val = q / p;
+    let rating: string;
+    let color: string;
+    if (val >= 4.5) { rating = 'Kiváló'; color = HVAC_GREEN; }
+    else if (val >= 3.5) { rating = 'Jó'; color = HVAC_GREEN; }
+    else if (val >= 2.5) { rating = 'Közepes'; color = HVAC_YELLOW; }
+    else { rating = 'Gyenge'; color = HVAC_RED; }
+    return { val: val.toFixed(2), rating, color };
+  }, [qInput, pInput, mode]);
 
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Hűtéstechnika] COP/EER toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Hűtéstechnika] COP/EER toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Gauge size={20} color={HVAC_BLUE} />
           <Text style={styles.cardTitle}>COP / EER</Text>
@@ -165,7 +183,6 @@ function CopEer() {
 
       {open && (
         <View style={styles.cardBody}>
-          {/* Mode selector */}
           <View style={styles.segmentRow}>
             {(['COP', 'EER'] as const).map(m => (
               <TouchableOpacity
@@ -183,7 +200,7 @@ function CopEer() {
           <TextInput
             style={styles.inputLarge}
             value={qInput}
-            onChangeText={v => { console.log('[Hűtéstechnika] Q input:', v); setQInput(v); }}
+            onChangeText={v => { console.log('[Hűtéstechnika] COP/EER Q input:', v); setQInput(v); }}
             keyboardType="numeric"
             placeholder="pl. 5.0"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
@@ -193,16 +210,15 @@ function CopEer() {
           <TextInput
             style={styles.inputLarge}
             value={pInput}
-            onChangeText={v => { console.log('[Hűtéstechnika] P input:', v); setPInput(v); }}
+            onChangeText={v => { console.log('[Hűtéstechnika] COP/EER P input:', v); setPInput(v); }}
             keyboardType="numeric"
             placeholder="pl. 1.5"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
-          {/* Result */}
           <View style={styles.resultBox}>
-            <ResultRow label={mode} value="—" />
-            <ResultRow label="Minősítés" value="—" />
+            <ResultRow label={mode} value={result?.val ?? '—'} highlight={result?.color} />
+            <ResultRow label="Minősítés" value={result?.rating ?? '—'} highlight={result?.color} />
           </View>
         </View>
       )}
