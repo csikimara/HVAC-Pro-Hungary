@@ -310,84 +310,12 @@ function PressureDropTool() {
 
 // ─── Pipe Sizing ──────────────────────────────────────────────────────────────
 
-const DN_LIST = [15, 20, 25, 32, 40, 50, 65, 80, 100, 125, 150, 200];
-
-function getPipeVelocityColor(v: number): string {
-  if (v <= 1.5) return HVAC_GREEN;
-  if (v <= 2.5) return HVAC_YELLOW;
-  return HVAC_RED;
-}
-
 function PipeSizingTool() {
   const [open, setOpen] = useState(true);
-  const [pipeType, setPipeType] = useState<'kerek' | 'negyszog'>('kerek');
-  const [massFlow, setMassFlow] = useState('');
-  const [maxVelocity, setMaxVelocity] = useState('1.5');
-  const [density, setDensity] = useState('1000');
-  const [widthA, setWidthA] = useState('');
-  const [heightB, setHeightB] = useState('');
-
-  type PipeResult = {
-    calcDiameter: string;
-    recommendedDN: string;
-    actualVelocity: string;
-    velocityColor: string;
-    crossSection: string;
-    eqDiameter: string;
-    rectVelocity: string;
-    rectVelocityColor: string;
-  };
-
-  const [result, setResult] = useState<PipeResult | null>(null);
-
-  function calculate() {
-    console.log('[Légtechnika] Csőméretezés számítás, ṁ:', massFlow, 'típus:', pipeType, 'ρ:', density);
-    const mVal = parseFloat(massFlow);
-    const rhoVal = parseFloat(density);
-
-    if (pipeType === 'kerek') {
-      const vVal = parseFloat(maxVelocity);
-      if (isNaN(mVal) || isNaN(vVal) || isNaN(rhoVal) || vVal <= 0 || rhoVal <= 0) {
-        setResult(null);
-        return;
-      }
-      const A = mVal / (rhoVal * vVal * 3600);
-      const D = Math.sqrt((4 * A) / Math.PI) * 1000;
-      const dn = DN_LIST.find(d => d >= D) ?? DN_LIST[DN_LIST.length - 1];
-      const areaDN = Math.PI * Math.pow(dn / 1000, 2) / 4;
-      const vActual = mVal / (rhoVal * areaDN * 3600);
-      setResult({
-        calcDiameter: D.toFixed(1),
-        recommendedDN: dn.toString(),
-        actualVelocity: vActual.toFixed(2),
-        velocityColor: getPipeVelocityColor(vActual),
-        crossSection: '—',
-        eqDiameter: '—',
-        rectVelocity: '—',
-        rectVelocityColor: HVAC_TEXT,
-      });
-    } else {
-      const aVal = parseFloat(widthA);
-      const bVal = parseFloat(heightB);
-      if (isNaN(mVal) || isNaN(aVal) || isNaN(bVal) || isNaN(rhoVal) || aVal <= 0 || bVal <= 0 || rhoVal <= 0) {
-        setResult(null);
-        return;
-      }
-      const area = (aVal * bVal) / 1_000_000;
-      const velocity = mVal / (rhoVal * area * 3600);
-      const De = 1.3 * Math.pow(aVal * bVal, 0.625) / Math.pow(aVal + bVal, 0.25);
-      setResult({
-        calcDiameter: '—',
-        recommendedDN: '—',
-        actualVelocity: '—',
-        velocityColor: HVAC_TEXT,
-        crossSection: (area * 10000).toFixed(2),
-        eqDiameter: De.toFixed(1),
-        rectVelocity: velocity.toFixed(2),
-        rectVelocityColor: getPipeVelocityColor(velocity),
-      });
-    }
-  }
+  const [shape, setShape] = useState<'kor' | 'teglalap'>('kor');
+  const [airflow, setAirflow] = useState('');
+  const [airflowUnit, setAirflowUnit] = useState<'m³/h' | 'l/s'>('m³/h');
+  const [velocity, setVelocity] = useState('');
 
   return (
     <View style={styles.card}>
@@ -408,107 +336,84 @@ function PipeSizingTool() {
 
       {open && (
         <View style={styles.cardBody}>
+          {/* Shape selector */}
           <View style={styles.segmentRow}>
-            {(['kerek', 'negyszog'] as const).map(t => (
+            {(['kor', 'teglalap'] as const).map(s => (
               <TouchableOpacity
-                key={t}
-                style={[styles.segmentBtn, pipeType === t && styles.segmentBtnActive]}
+                key={s}
+                style={[styles.segmentBtn, shape === s && styles.segmentBtnActive]}
                 onPress={() => {
-                  console.log('[Légtechnika] Cső típus:', t);
-                  setPipeType(t);
-                  setResult(null);
+                  console.log('[Légtechnika] Csőméretezés alakzat:', s);
+                  setShape(s);
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.segmentText, pipeType === t && styles.segmentTextActive]}>
-                  {t === 'kerek' ? 'Kerek' : 'Négyszög'}
+                <Text style={[styles.segmentText, shape === s && styles.segmentTextActive]}>
+                  {s === 'kor' ? 'Kör' : 'Téglalap'}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          <Text style={styles.label}>Tömegáram ṁ (kg/h)</Text>
-          <TextInput
-            style={styles.input}
-            value={massFlow}
-            onChangeText={setMassFlow}
-            keyboardType="numeric"
-            placeholder="pl. 500"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
+          {/* Légszállítás row */}
+          <Text style={styles.label}>Légszállítás</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              value={airflow}
+              onChangeText={text => {
+                console.log('[Légtechnika] Csőméretezés légszállítás input:', text);
+                setAirflow(text);
+              }}
+              keyboardType="numeric"
+              placeholder="pl. 500"
+              placeholderTextColor={HVAC_TEXT_SECONDARY}
+            />
+            {(['m³/h', 'l/s'] as const).map(u => {
+              const isActive = airflowUnit === u;
+              return (
+                <TouchableOpacity
+                  key={u}
+                  style={[styles.unitBtn, isActive && styles.unitBtnActive]}
+                  onPress={() => {
+                    console.log('[Légtechnika] Csőméretezés légszállítás egység:', u);
+                    setAirflowUnit(u);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.unitBtnText, isActive && styles.unitBtnTextActive]}>
+                    {u}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-          {pipeType === 'kerek' && (
-            <>
-              <Text style={styles.label}>Max. sebesség v (m/s)</Text>
-              <TextInput
-                style={styles.input}
-                value={maxVelocity}
-                onChangeText={setMaxVelocity}
-                keyboardType="numeric"
-                placeholder="1.5"
-                placeholderTextColor={HVAC_TEXT_SECONDARY}
-              />
-            </>
-          )}
-
-          {pipeType === 'negyszog' && (
-            <>
-              <Text style={styles.label}>Szélesség a (mm)</Text>
-              <TextInput
-                style={styles.input}
-                value={widthA}
-                onChangeText={setWidthA}
-                keyboardType="numeric"
-                placeholder="pl. 50"
-                placeholderTextColor={HVAC_TEXT_SECONDARY}
-              />
-              <Text style={styles.label}>Magasság b (mm)</Text>
-              <TextInput
-                style={styles.input}
-                value={heightB}
-                onChangeText={setHeightB}
-                keyboardType="numeric"
-                placeholder="pl. 30"
-                placeholderTextColor={HVAC_TEXT_SECONDARY}
-              />
-            </>
-          )}
-
-          <Text style={styles.label}>Közeg sűrűsége ρ (kg/m³)</Text>
-          <TextInput
-            style={styles.input}
-            value={density}
-            onChangeText={setDensity}
-            keyboardType="numeric"
-            placeholder="1000"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
-
-          <TouchableOpacity
-            style={styles.calcBtn}
-            onPress={calculate}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.calcBtnText}>Kiszámít</Text>
-          </TouchableOpacity>
-
-          {result && (
-            <View style={styles.resultBox}>
-              {pipeType === 'kerek' ? (
-                <>
-                  <ResultRow label="Számított átmérő" value={result.calcDiameter} unit="mm" />
-                  <ResultRow label="Ajánlott DN méret" value={result.recommendedDN} unit="DN" highlight={HVAC_BLUE} />
-                  <ResultRow label="Tényleges sebesség" value={result.actualVelocity} unit="m/s" highlight={result.velocityColor} />
-                </>
-              ) : (
-                <>
-                  <ResultRow label="Keresztmetszet" value={result.crossSection} unit="cm²" />
-                  <ResultRow label="Ekvivalens átmérő" value={result.eqDiameter} unit="mm" />
-                  <ResultRow label="Tényleges sebesség" value={result.rectVelocity} unit="m/s" highlight={result.rectVelocityColor} />
-                </>
-              )}
+          {/* Sebesség row */}
+          <Text style={styles.label}>Max. sebesség</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              value={velocity}
+              onChangeText={text => {
+                console.log('[Légtechnika] Csőméretezés sebesség input:', text);
+                setVelocity(text);
+              }}
+              keyboardType="numeric"
+              placeholder="pl. 3.0"
+              placeholderTextColor={HVAC_TEXT_SECONDARY}
+            />
+            <View style={styles.unitBtn}>
+              <Text style={styles.unitBtnText}>m/s</Text>
             </View>
-          )}
+          </View>
+
+          {/* Static result placeholder */}
+          <View style={styles.resultBox}>
+            <ResultRow label="Számított átmérő" value="—" unit="mm" />
+            <ResultRow label="Ajánlott méret" value="—" unit="mm" />
+            <ResultRow label="Légsebesség" value="—" unit="m/s" />
+          </View>
         </View>
       )}
     </View>
@@ -694,5 +599,31 @@ const styles = StyleSheet.create({
     color: HVAC_TEXT_SECONDARY,
     lineHeight: 19,
     marginTop: 4,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  unitBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: HVAC_SURFACE,
+    borderWidth: 1,
+    borderColor: HVAC_BORDER,
+    marginLeft: 6,
+  },
+  unitBtnActive: {
+    backgroundColor: HVAC_BLUE,
+    borderColor: HVAC_BLUE,
+  },
+  unitBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: HVAC_TEXT_SECONDARY,
+  },
+  unitBtnTextActive: {
+    color: '#FFFFFF',
   },
 });
