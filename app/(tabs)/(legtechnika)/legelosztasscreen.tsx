@@ -463,6 +463,9 @@ function FittingsHelper({
                 placeholderTextColor={HVAC_TEXT_SECONDARY}
               />
             )}
+            <Text style={{ fontSize: 12, color: HVAC_TEXT_SECONDARY, lineHeight: 17, marginTop: 10 }}>
+              A K-értékek tájékoztató jellegűek. A tényleges veszteség a geometriától, az idom kialakításától és az ág körülményeitől függ.
+            </Text>
           </View>
         </View>
       )}
