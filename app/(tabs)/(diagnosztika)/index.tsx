@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -444,32 +444,125 @@ function CompressorDiagnostics() {
 
 function KompresszioviszonyKalkulator() {
   const [open, setOpen] = useState(false);
+  const [suctionInput, setSuctionInput] = useState('');
+  const [dischargeInput, setDischargeInput] = useState('');
+  const [unit, setUnit] = useState<'bar_g' | 'bar_abs' | 'kPa_g' | 'psig'>('bar_g');
+
+  const UNITS: Array<{ key: 'bar_g' | 'bar_abs' | 'kPa_g' | 'psig'; label: string }> = [
+    { key: 'bar_g',   label: 'bar (rel)' },
+    { key: 'bar_abs', label: 'bar (abs)' },
+    { key: 'kPa_g',   label: 'kPa (rel)' },
+    { key: 'psig',    label: 'psig' },
+  ];
+
+  // Convert to absolute bar
+  function toAbsBar(val: number, u: string): number {
+    if (u === 'bar_g')   return val + 1.01325;
+    if (u === 'bar_abs') return val;
+    if (u === 'kPa_g')   return val / 100 + 1.01325;
+    if (u === 'psig')    return val * 0.0689476 + 1.01325;
+    return val;
+  }
+
+  const result = useMemo(() => {
+    const s = parseFloat(suctionInput);
+    const d = parseFloat(dischargeInput);
+    if (isNaN(s) || s < 0 || isNaN(d) || d < 0) return null;
+
+    const sAbs = toAbsBar(s, unit);
+    const dAbs = toAbsBar(d, unit);
+    if (sAbs <= 0) return null;
+
+    const cr = dAbs / sAbs;
+
+    let rating: string;
+    let ratingColor: string;
+    if (cr < 2.5)                    { rating = 'Alacsony';  ratingColor = HVAC_YELLOW; }
+    else if (cr >= 2.5 && cr <= 4.5) { rating = 'Normál';    ratingColor = HVAC_GREEN;  }
+    else if (cr > 4.5 && cr <= 6.0)  { rating = 'Magas';     ratingColor = HVAC_YELLOW; }
+    else                             { rating = 'Kritikus';  ratingColor = HVAC_RED;    }
+
+    return {
+      sAbs: sAbs.toFixed(3),
+      dAbs: dAbs.toFixed(3),
+      cr: cr.toFixed(2),
+      rating,
+      ratingColor,
+    };
+  }, [suctionInput, dischargeInput, unit]);
+
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Diagnosztika] Kompresszióviszony kalkulátor toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Diagnosztika] Kompresszióviszony kalkulátor toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Gauge size={20} color={HVAC_BLUE} />
           <Text style={styles.cardTitle}>Kompresszióviszony kalkulátor</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
+
       {open && (
         <View style={styles.cardBody}>
-          <Text style={styles.label}>Szívónyomás (bar abs)</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 5.5" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
-          <Text style={styles.label}>Nyomónyomás (bar abs)</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 22" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Nyomásegység</Text>
+          <View style={[styles.segmentRow, { flexWrap: 'wrap', height: undefined }]}>
+            {UNITS.map(u => (
+              <TouchableOpacity
+                key={u.key}
+                style={[styles.segmentBtn, { flex: undefined, paddingHorizontal: 14 }, unit === u.key && styles.segmentBtnActive]}
+                onPress={() => { console.log('[Diagnosztika] Kompresszióviszony unit:', u.key); setUnit(u.key); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, unit === u.key && styles.segmentBtnActiveText]}>{u.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Szívónyomás ({unit === 'kPa_g' ? 'kPa rel' : unit === 'psig' ? 'psig' : unit === 'bar_abs' ? 'bar abs' : 'bar rel'})</Text>
+          <TextInput
+            style={styles.input}
+            value={suctionInput}
+            onChangeText={v => { console.log('[Diagnosztika] Szívónyomás input:', v); setSuctionInput(v); }}
+            keyboardType="numeric"
+            placeholder={unit === 'kPa_g' ? 'pl. 450' : unit === 'psig' ? 'pl. 65' : 'pl. 5.5'}
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          <Text style={styles.label}>Nyomónyomás ({unit === 'kPa_g' ? 'kPa rel' : unit === 'psig' ? 'psig' : unit === 'bar_abs' ? 'bar abs' : 'bar rel'})</Text>
+          <TextInput
+            style={styles.input}
+            value={dischargeInput}
+            onChangeText={v => { console.log('[Diagnosztika] Nyomónyomás input:', v); setDischargeInput(v); }}
+            keyboardType="numeric"
+            placeholder={unit === 'kPa_g' ? 'pl. 2100' : unit === 'psig' ? 'pl. 305' : 'pl. 22'}
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <View style={styles.resultBox}>
             <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Kompresszióviszony</Text>
-              <Text style={styles.resultValue}>—</Text>
+              <Text style={styles.resultLabel}>Szívónyomás (abs)</Text>
+              <Text style={styles.resultValue}>{result?.sAbs ?? '—'} <Text style={styles.resultUnit}>bar</Text></Text>
+            </View>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Nyomónyomás (abs)</Text>
+              <Text style={styles.resultValue}>{result?.dAbs ?? '—'} <Text style={styles.resultUnit}>bar</Text></Text>
+            </View>
+            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+              <Text style={[styles.resultLabel, { fontWeight: '600', color: HVAC_TEXT }]}>Kompresszióviszony</Text>
+              <Text style={[styles.resultValue, { color: result?.ratingColor ?? HVAC_TEXT }]}>{result?.cr ?? '—'}</Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Értékelés</Text>
-              <Text style={styles.resultValue}>—</Text>
+              <Text style={[styles.resultValue, { color: result?.ratingColor ?? HVAC_TEXT_SECONDARY }]}>{result?.rating ?? '—'}</Text>
             </View>
           </View>
-          <Text style={styles.noteText}>Számítás hamarosan elérhető.</Text>
+
+          <Text style={styles.noteText}>
+            Normál tartomány: 2,5–4,5. A nyomásokat abszolút értékre konvertálja (1,01325 bar atmoszferikus nyomással).
+          </Text>
         </View>
       )}
     </View>
