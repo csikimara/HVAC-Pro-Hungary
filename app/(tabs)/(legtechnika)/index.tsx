@@ -224,30 +224,45 @@ function PressureDropTool() {
   const [ductSize, setDuctSize] = useState('');
   const [sizeUnit, setSizeUnit] = useState<'mm' | 'cm'>('mm');
   const [roughness, setRoughness] = useState('');
+  const [ductShape, setDuctShape] = useState<'kor' | 'teglalap'>('kor');
+  const [rectWidth, setRectWidth] = useState('');
+  const [rectHeight, setRectHeight] = useState('');
 
   const result = useMemo(() => {
     const Q_raw = parseFloat(airflow);
-    const D_raw = parseFloat(ductSize);
     const L_raw = parseFloat(ductLength);
-    if (isNaN(Q_raw) || Q_raw <= 0 || isNaN(D_raw) || D_raw <= 0) return null;
+    if (isNaN(Q_raw) || Q_raw <= 0) return null;
 
-    // Normalise units
     const Q = airflowUnit === 'm³/h' ? Q_raw / 3600 : Q_raw / 1000; // m³/s
-    const D = sizeUnit === 'mm' ? D_raw / 1000 : D_raw / 100;        // m
     const L = isNaN(L_raw) || L_raw <= 0
       ? null
-      : lengthUnit === 'm' ? L_raw : L_raw / 1000;                   // m
+      : lengthUnit === 'm' ? L_raw : L_raw / 1000; // m
 
-    const area = Math.PI * Math.pow(D, 2) / 4;
-    const v = Q / area;
-
-    // λ: if roughness field is a valid number treat it as λ directly, else default 0.02
     const lambdaInput = parseFloat(roughness);
     const lambda = !isNaN(lambdaInput) && lambdaInput > 0 ? lambdaInput : 0.02;
+    const rho = 1.2;
 
-    const rho = 1.2; // kg/m³ air
-    const R = lambda * (rho * Math.pow(v, 2)) / (2 * D); // Pa/m specific drop
+    let area: number;
+    let D_h: number; // hydraulic diameter in metres for Darcy-Weisbach
 
+    if (ductShape === 'kor') {
+      const D_raw = parseFloat(ductSize);
+      if (isNaN(D_raw) || D_raw <= 0) return null;
+      const D = sizeUnit === 'mm' ? D_raw / 1000 : D_raw / 100;
+      area = Math.PI * Math.pow(D, 2) / 4;
+      D_h = D;
+    } else {
+      const a_raw = parseFloat(rectWidth);
+      const b_raw = parseFloat(rectHeight);
+      if (isNaN(a_raw) || a_raw <= 0 || isNaN(b_raw) || b_raw <= 0) return null;
+      const a = a_raw / 1000; // m
+      const b = b_raw / 1000; // m
+      area = a * b;
+      D_h = (2 * a * b) / (a + b); // hydraulic diameter
+    }
+
+    const v = Q / area;
+    const R = lambda * (rho * Math.pow(v, 2)) / (2 * D_h);
     const deltaP = L !== null ? R * L : null;
 
     const vColor = v <= 3.5 ? HVAC_GREEN : v <= 5 ? HVAC_YELLOW : HVAC_RED;
@@ -260,7 +275,7 @@ function PressureDropTool() {
       specificDrop: R.toFixed(3),
       specificColor: rColor,
     };
-  }, [airflow, airflowUnit, ductSize, sizeUnit, ductLength, lengthUnit, roughness]);
+  }, [airflow, airflowUnit, ductSize, sizeUnit, ductLength, lengthUnit, roughness, ductShape, rectWidth, rectHeight]);
 
   return (
     <View style={styles.card}>
@@ -281,6 +296,24 @@ function PressureDropTool() {
 
       {open && (
         <View style={styles.cardBody}>
+          <View style={styles.segmentRow}>
+            {(['kor', 'teglalap'] as const).map(s => (
+              <TouchableOpacity
+                key={s}
+                style={[styles.segmentBtn, ductShape === s && styles.segmentBtnActive]}
+                onPress={() => {
+                  console.log('[Légtechnika] Nyomásesés alakzat:', s);
+                  setDuctShape(s);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, ductShape === s && styles.segmentTextActive]}>
+                  {s === 'kor' ? 'Kör' : 'Téglalap'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
           {/* Légmennyiség */}
           <Text style={styles.label}>Légmennyiség</Text>
           <View style={styles.inputRow}>
@@ -350,38 +383,71 @@ function PressureDropTool() {
           </View>
 
           {/* Csatorna Ø */}
-          <Text style={styles.label}>Csatorna Ø</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={[styles.input, { flex: 1, marginBottom: 0 }]}
-              value={ductSize}
-              onChangeText={text => {
-                console.log('[Légtechnika] Nyomásesés csatornaméret input:', text);
-                setDuctSize(text);
-              }}
-              keyboardType="numeric"
-              placeholder="pl. 200"
-              placeholderTextColor={HVAC_TEXT_SECONDARY}
-            />
-            {(['mm', 'cm'] as const).map(u => {
-              const isActive = sizeUnit === u;
-              return (
-                <TouchableOpacity
-                  key={u}
-                  style={[styles.unitBtn, isActive && styles.unitBtnActive]}
-                  onPress={() => {
-                    console.log('[Légtechnika] Nyomásesés méret egység:', u);
-                    setSizeUnit(u);
+          {ductShape === 'kor' && (
+            <>
+              <Text style={styles.label}>Csatorna Ø</Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                  value={ductSize}
+                  onChangeText={text => {
+                    console.log('[Légtechnika] Nyomásesés csatornaméret input:', text);
+                    setDuctSize(text);
                   }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.unitBtnText, isActive && styles.unitBtnTextActive]}>
-                    {u}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                  keyboardType="numeric"
+                  placeholder="pl. 200"
+                  placeholderTextColor={HVAC_TEXT_SECONDARY}
+                />
+                {(['mm', 'cm'] as const).map(u => {
+                  const isActive = sizeUnit === u;
+                  return (
+                    <TouchableOpacity
+                      key={u}
+                      style={[styles.unitBtn, isActive && styles.unitBtnActive]}
+                      onPress={() => {
+                        console.log('[Légtechnika] Nyomásesés méret egység:', u);
+                        setSizeUnit(u);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.unitBtnText, isActive && styles.unitBtnTextActive]}>
+                        {u}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
+          )}
+
+          {ductShape === 'teglalap' && (
+            <>
+              <Text style={styles.label}>Szélesség (mm)</Text>
+              <TextInput
+                style={styles.input}
+                value={rectWidth}
+                onChangeText={text => {
+                  console.log('[Légtechnika] Nyomásesés szélesség input:', text);
+                  setRectWidth(text);
+                }}
+                keyboardType="numeric"
+                placeholder="pl. 400"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+              <Text style={styles.label}>Magasság (mm)</Text>
+              <TextInput
+                style={styles.input}
+                value={rectHeight}
+                onChangeText={text => {
+                  console.log('[Légtechnika] Nyomásesés magasság input:', text);
+                  setRectHeight(text);
+                }}
+                keyboardType="numeric"
+                placeholder="pl. 200"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+            </>
+          )}
 
           {/* Súrlódási tényező λ */}
           <Text style={styles.label}>Súrlódási tényező λ</Text>
