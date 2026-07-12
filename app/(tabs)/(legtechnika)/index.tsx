@@ -85,7 +85,9 @@ function DuctSizingTool() {
         setResult(null);
         return;
       }
-      const De = 1.3 * Math.pow(aVal * bVal, 0.625) / Math.pow(aVal + bVal, 0.25);
+      const aM = aVal / 1000;
+      const bM = bVal / 1000;
+      const De = 1.3 * Math.pow(aM * bM, 0.625) / Math.pow(aM + bM, 0.25) * 1000;
       const area = (aVal * bVal) / 1_000_000;
       const velocity = qVal / (3600 * area);
       setResult({
