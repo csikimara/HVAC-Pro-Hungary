@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ChevronDown, ChevronUp, ChevronLeft, Pipette, Ruler, TrendingDown } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Pipette, Ruler, TrendingDown, Wind } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
@@ -824,6 +824,33 @@ export default function LegtechnikaScreen() {
         <DuctSizingTool />
         <PressureDropTool />
         <PipeSizingTool />
+        <TouchableOpacity
+          style={{
+            backgroundColor: HVAC_CARD,
+            borderWidth: 1,
+            borderColor: HVAC_BORDER,
+            borderRadius: 16,
+            padding: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 12,
+          }}
+          onPress={() => {
+            console.log('[Légtechnika] Navigálás: Légelosztás');
+            router.push('/(tabs)/(legtechnika)/legelosztás');
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Wind size={20} color={HVAC_BLUE} />
+            <View>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: HVAC_TEXT }}>Légelosztás</Text>
+              <Text style={{ fontSize: 12, color: HVAC_TEXT_SECONDARY, marginTop: 2 }}>Ág tervezés · ESP ellenőrzés</Text>
+            </View>
+          </View>
+          <ChevronRight size={18} color={HVAC_TEXT_SECONDARY} />
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
