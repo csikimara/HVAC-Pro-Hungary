@@ -490,45 +490,114 @@ function WVAKalkulator() {
 function TeljesitmenyKalkulator() {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<'1f' | '3f'>('1f');
+  const [uInput, setUInput] = useState('');
+  const [iInput, setIInput] = useState('');
+  const [cosInput, setCosInput] = useState('');
+
+  const result = useMemo(() => {
+    const u   = parseFloat(uInput);
+    const i   = parseFloat(iInput);
+    const cos = parseFloat(cosInput);
+    if (isNaN(u) || u <= 0 || isNaN(i) || i <= 0) return null;
+    const cosPhi = (!isNaN(cos) && cos > 0 && cos <= 1) ? cos : null;
+
+    const factor = phase === '3f' ? Math.sqrt(3) : 1;
+    const S = factor * u * i;
+    const P = cosPhi !== null ? S * cosPhi : null;
+    const Q = P !== null ? Math.sqrt(Math.max(0, S * S - P * P)) : null;
+
+    return {
+      S: S.toFixed(2),
+      P: P !== null ? P.toFixed(2) : null,
+      Q: Q !== null ? Q.toFixed(2) : null,
+    };
+  }, [uInput, iInput, cosInput, phase]);
+
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Villany] Teljesítmény kalkulátor toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Villany] Teljesítmény kalkulátor toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <ToggleLeft size={20} color={HVAC_BLUE} />
           <Text style={styles.cardTitle}>1f / 3f teljesítmény kalkulátor</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
+
       {open && (
         <View style={styles.cardBody}>
           <View style={styles.segmentRow}>
             {(['1f', '3f'] as const).map(p => (
-              <TouchableOpacity key={p} style={[styles.segmentBtn, phase === p && styles.segmentBtnActive]} onPress={() => { console.log('[Villany] Fázis:', p); setPhase(p); }} activeOpacity={0.7}>
-                <Text style={[styles.segmentText, phase === p && styles.segmentBtnActiveText]}>{p === '1f' ? 'Egyfázisú' : 'Háromfázisú'}</Text>
+              <TouchableOpacity
+                key={p}
+                style={[styles.segmentBtn, phase === p && styles.segmentBtnActive]}
+                onPress={() => { console.log('[Villany] Fázis:', p); setPhase(p); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, phase === p && styles.segmentBtnActiveText]}>
+                  {p === '1f' ? 'Egyfázisú' : 'Háromfázisú'}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
+
           <Text style={styles.label}>Feszültség U (V)</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder={phase === '1f' ? 'pl. 230' : 'pl. 400'} placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <TextInput
+            style={styles.input}
+            value={uInput}
+            onChangeText={v => { console.log('[Villany] Teljesítmény U input:', v); setUInput(v); }}
+            keyboardType="numeric"
+            placeholder={phase === '1f' ? 'pl. 230' : 'pl. 400'}
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <Text style={styles.label}>Áramerősség I (A)</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 16" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <TextInput
+            style={styles.input}
+            value={iInput}
+            onChangeText={v => { console.log('[Villany] Teljesítmény I input:', v); setIInput(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 16"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <Text style={styles.label}>Teljesítménytényező cos φ</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 0.9" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <TextInput
+            style={styles.input}
+            value={cosInput}
+            onChangeText={v => { console.log('[Villany] Teljesítmény cos φ input:', v); setCosInput(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 0.9"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <View style={styles.resultBox}>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Látszólagos teljesítmény S</Text>
-              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>VA</Text></Text>
+              <Text style={styles.resultValue}>
+                {result?.S ?? '—'} <Text style={styles.resultUnit}>VA</Text>
+              </Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Hatásos teljesítmény P</Text>
-              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>W</Text></Text>
+              <Text style={styles.resultValue}>
+                {result?.P ?? '—'} <Text style={styles.resultUnit}>W</Text>
+              </Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Meddő teljesítmény Q</Text>
-              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>VAr</Text></Text>
+              <Text style={styles.resultValue}>
+                {result?.Q ?? '—'} <Text style={styles.resultUnit}>VAr</Text>
+              </Text>
             </View>
           </View>
-          <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8 }}>Számítás hamarosan elérhető.</Text>
+
+          <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8 }}>
+            P és Q számításához add meg a cos φ értéket is (0–1 között).
+          </Text>
         </View>
       )}
     </View>
