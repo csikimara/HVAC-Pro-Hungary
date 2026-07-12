@@ -1287,6 +1287,7 @@ export default function HutestechnikaScreen() {
     alignItems: 'center' as const,
     gap: 4,
     marginBottom: 16,
+    marginTop: 24,
     alignSelf: 'flex-start' as const,
   };
   const backBtnText = { fontSize: 13, color: HVAC_BLUE, fontWeight: '500' as const };

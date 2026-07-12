@@ -1000,6 +1000,7 @@ export default function DiagnosztikaSreen() {
     alignItems: 'center' as const,
     gap: 4,
     marginBottom: 16,
+    marginTop: 24,
     alignSelf: 'flex-start' as const,
   };
   const backBtnText = {
