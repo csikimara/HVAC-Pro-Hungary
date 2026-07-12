@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ChevronDown, ChevronUp, ChevronLeft, Cpu, AlertTriangle, CheckCircle, XCircle, Gauge, Thermometer, Search } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ChevronLeft, Cpu, AlertTriangle, CheckCircle, XCircle, Gauge, Thermometer, Search, Zap } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
@@ -837,6 +837,160 @@ function GyorsHibagyanú() {
   );
 }
 
+// ─── Kompresszor elektromos ellenőrzés ───────────────────────────────────────
+
+function KompresszorElektromosEllenorzes() {
+  const [open, setOpen] = useState(false);
+  const [cr, setCr] = useState('');
+  const [cs, setCs] = useState('');
+  const [rs, setRs] = useState('');
+  const [ground, setGround] = useState('');
+
+  const result = useMemo(() => {
+    const crV = parseFloat(cr);
+    const csV = parseFloat(cs);
+    const rsV = parseFloat(rs);
+    const gV  = parseFloat(ground);
+
+    const hasCR = !isNaN(crV) && crV >= 0;
+    const hasCS = !isNaN(csV) && csV >= 0;
+    const hasRS = !isNaN(rsV) && rsV >= 0;
+    const hasG  = !isNaN(gV)  && gV  >= 0;
+
+    if (!hasCR && !hasCS && !hasRS && !hasG) return null;
+
+    const issues: string[] = [];
+    const steps: string[] = [];
+
+    // Ground / earth fault check
+    if (hasG) {
+      if (gV < 1) {
+        issues.push('Testzárlat gyanú (kapocs–föld ellenállás nagyon alacsony)');
+        steps.push('Ellenőrizd a kompresszor szigetelését és a kábelt');
+      } else if (gV < 1000) {
+        issues.push('Gyenge szigetelés gyanú (kapocs–föld < 1 MΩ)');
+        steps.push('Mérd meg szigetelési ellenállás-mérővel (megger)');
+      }
+    }
+
+    // Winding check — sum rule: C-R + C-S ≈ R-S
+    if (hasCR && hasCS && hasRS) {
+      const sumCS = crV + csV;
+      const diff = Math.abs(sumCS - rsV);
+      const tolerance = rsV * 0.15; // 15% tolerance
+      if (rsV < 0.1 || crV < 0.1 || csV < 0.1) {
+        issues.push('Tekercszárlat gyanú (nagyon alacsony ellenállásérték)');
+        steps.push('Ellenőrizd a tekercseket, cseréld ki a kompresszort ha megerősítést nyer');
+      } else if (diff > tolerance) {
+        issues.push('Tekercszárlat vagy szakadás gyanú (C-R + C-S ≠ R-S)');
+        steps.push('Ellenőrizd az egyes tekercsek ellenállását és hasonlítsd össze a névleges értékkel');
+      }
+    } else {
+      // Individual open-circuit checks
+      if (hasCR && crV > 9999) { issues.push('Szakadás gyanú a C-R tekercsen'); steps.push('Ellenőrizd a C és R kapcsok közötti összeköttetést'); }
+      if (hasCS && csV > 9999) { issues.push('Szakadás gyanú a C-S tekercsen'); steps.push('Ellenőrizd a C és S kapcsok közötti összeköttetést'); }
+      if (hasRS && rsV > 9999) { issues.push('Szakadás gyanú az R-S tekercsen'); steps.push('Ellenőrizd az R és S kapcsok közötti összeköttetést'); }
+    }
+
+    if (issues.length === 0) {
+      return {
+        suspicion: 'Valószínűleg rendben',
+        step: 'Az ellenállásértékek a normál tartományban vannak. Hasonlítsd össze a gyártói adatlappal.',
+        color: HVAC_GREEN,
+      };
+    }
+
+    return {
+      suspicion: issues.join('; '),
+      step: steps.join('; '),
+      color: issues.some(i => i.includes('Testzárlat') || i.includes('Tekercszárlat')) ? HVAC_RED : HVAC_YELLOW,
+    };
+  }, [cr, cs, rs, ground]);
+
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Diagnosztika] Kompresszor elektromos ellenőrzés toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeaderLeft}>
+          <Zap size={20} color={HVAC_YELLOW} />
+          <Text style={styles.cardTitle}>Kompresszor elektromos ellenőrzés</Text>
+        </View>
+        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+
+      {open && (
+        <View style={styles.cardBody}>
+          <Text style={styles.noteText}>
+            Add meg a kompresszor kapcsai között mért ellenállásértékeket (Ω). Áramtalanított állapotban mérj!
+          </Text>
+
+          <Text style={styles.label}>C–R tekercs (Ω)</Text>
+          <TextInput
+            style={styles.input}
+            value={cr}
+            onChangeText={v => { console.log('[Diagnosztika] C-R input:', v); setCr(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 2.5"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          <Text style={styles.label}>C–S tekercs (Ω)</Text>
+          <TextInput
+            style={styles.input}
+            value={cs}
+            onChangeText={v => { console.log('[Diagnosztika] C-S input:', v); setCs(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 4.0"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          <Text style={styles.label}>R–S tekercs (Ω)</Text>
+          <TextInput
+            style={styles.input}
+            value={rs}
+            onChangeText={v => { console.log('[Diagnosztika] R-S input:', v); setRs(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 6.5"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          <Text style={styles.label}>Kapocs–föld (MΩ) – opcionális</Text>
+          <TextInput
+            style={styles.input}
+            value={ground}
+            onChangeText={v => { console.log('[Diagnosztika] Kapocs-föld input:', v); setGround(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 100"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          <View style={styles.resultBox}>
+            <View style={styles.resultRow}>
+              <Text style={[styles.resultLabel, { flex: 0.4 }]}>Értékelés</Text>
+              <Text style={[styles.resultValue, { fontSize: 14, flex: 0.6, textAlign: 'right', color: result?.color ?? HVAC_TEXT_SECONDARY }]}>
+                {result?.suspicion ?? '—'}
+              </Text>
+            </View>
+            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+              <Text style={[styles.resultLabel, { flex: 0.4 }]}>Javasolt lépés</Text>
+              <Text style={[styles.resultValue, { fontSize: 14, flex: 0.6, textAlign: 'right', color: HVAC_BLUE }]}>
+                {result?.step ?? '—'}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.noteText}>
+            Az eredmény tájékoztató jellegű. A C-R + C-S összegének közelítőleg egyenlőnek kell lennie R-S értékével (±15%). Pontos diagnózishoz használj kalibrált mérőeszközt.
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function DiagnosztikaSreen() {
@@ -878,6 +1032,7 @@ export default function DiagnosztikaSreen() {
         <KompresszioviszonyKalkulator />
         <DeltaTKalkulator />
         <GyorsHibagyanú />
+        <KompresszorElektromosEllenorzes />
       </ScrollView>
     </View>
   );
