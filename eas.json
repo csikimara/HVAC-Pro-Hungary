@@ -9,6 +9,13 @@
       "distribution": "internal",
       "autoIncrement": true
     },
+    "apk": {
+      "android": {
+        "buildType": "apk"
+      },
+      "distribution": "internal",
+      "autoIncrement": true
+    },
     "production": {
       "autoIncrement": true
     }

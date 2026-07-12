@@ -1,5 +1,6 @@
 {
   "expo": {
+    "newArchEnabled": true,
     "name": "HVAC Pro Hungary",
     "slug": "hvac-pro-hungary",
     "version": "1.0.0",
@@ -21,7 +22,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/app-icon-gou.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#0D0F12"
       },
       "package": "com.placeholder.app"
     },
