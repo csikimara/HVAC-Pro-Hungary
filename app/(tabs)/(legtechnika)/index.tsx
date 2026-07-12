@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ const HVAC_YELLOW = '#F59E0B';
 const HVAC_RED = '#EF4444';
 
 const STANDARD_DIAMETERS = [80, 100, 125, 150, 160, 200, 250, 315, 355, 400, 450, 500, 560, 630];
+const STANDARD_DUCT_DIAMETERS = [80, 100, 125, 150, 160, 200, 250, 315, 355, 400, 450, 500, 560, 630];
 
 function getVelocityColor(v: number): string {
   if (v <= 3.5) return HVAC_GREEN;
@@ -381,6 +382,50 @@ function PipeSizingTool() {
   const [rectWidth, setRectWidth] = useState('');
   const [rectHeight, setRectHeight] = useState('');
 
+  const result = useMemo(() => {
+    const Q_raw = parseFloat(airflow);
+    const v = parseFloat(velocity);
+    if (isNaN(Q_raw) || Q_raw <= 0) return null;
+
+    // Normalise airflow to m³/s
+    const Q = airflowUnit === 'm³/h' ? Q_raw / 3600 : Q_raw / 1000;
+
+    if (shape === 'kor') {
+      if (isNaN(v) || v <= 0) return null;
+      const D_m = Math.sqrt((4 * Q) / (Math.PI * v));
+      const D_mm = D_m * 1000;
+      const stdD = STANDARD_DUCT_DIAMETERS.find(d => d >= D_mm) ?? STANDARD_DUCT_DIAMETERS[STANDARD_DUCT_DIAMETERS.length - 1];
+      const areaStd = Math.PI * Math.pow(stdD / 1000, 2) / 4;
+      const vActual = Q / areaStd;
+      const vColor = vActual <= 3.5 ? HVAC_GREEN : vActual <= 5 ? HVAC_YELLOW : HVAC_RED;
+      return {
+        diameter: D_mm.toFixed(1),
+        recommended: stdD.toString(),
+        velocity: vActual.toFixed(2),
+        velocityColor: vColor,
+        // téglalap fields unused
+        crossSection: null as string | null,
+        eqDiameter: null as string | null,
+      };
+    } else {
+      const a = parseFloat(rectWidth);
+      const b = parseFloat(rectHeight);
+      if (isNaN(a) || isNaN(b) || a <= 0 || b <= 0) return null;
+      const area = (a / 1000) * (b / 1000);
+      const vActual = Q / area;
+      const De = 1.3 * Math.pow((a / 1000) * (b / 1000), 0.625) / Math.pow((a + b) / 1000, 0.25) * 1000;
+      const vColor = vActual <= 3.5 ? HVAC_GREEN : vActual <= 5 ? HVAC_YELLOW : HVAC_RED;
+      return {
+        diameter: null as string | null,
+        recommended: null as string | null,
+        velocity: vActual.toFixed(2),
+        velocityColor: vColor,
+        crossSection: (area * 10000).toFixed(2),
+        eqDiameter: De.toFixed(1),
+      };
+    }
+  }, [airflow, airflowUnit, velocity, shape, rectWidth, rectHeight]);
+
   return (
     <View style={styles.card}>
       <TouchableOpacity
@@ -495,11 +540,20 @@ function PipeSizingTool() {
             </>
           )}
 
-          {/* Static result placeholder */}
           <View style={styles.resultBox}>
-            <ResultRow label="Számított átmérő" value="—" unit="mm" />
-            <ResultRow label="Ajánlott méret" value="—" unit="mm" />
-            <ResultRow label="Légsebesség" value="—" unit="m/s" />
+            {shape === 'kor' ? (
+              <>
+                <ResultRow label="Számított átmérő" value={result?.diameter ?? '—'} unit="mm" />
+                <ResultRow label="Ajánlott méret" value={result?.recommended ?? '—'} unit="mm" highlight={result ? HVAC_BLUE : undefined} />
+                <ResultRow label="Légsebesség" value={result?.velocity ?? '—'} unit="m/s" highlight={result?.velocityColor} />
+              </>
+            ) : (
+              <>
+                <ResultRow label="Keresztmetszet" value={result?.crossSection ?? '—'} unit="cm²" />
+                <ResultRow label="Ekvivalens átmérő" value={result?.eqDiameter ?? '—'} unit="mm" />
+                <ResultRow label="Légsebesség" value={result?.velocity ?? '—'} unit="m/s" highlight={result?.velocityColor} />
+              </>
+            )}
           </View>
         </View>
       )}
