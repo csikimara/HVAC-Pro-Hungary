@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -43,17 +43,47 @@ function ResultRow({ label, value, unit, highlight }: {
 
 // ─── 1. Teljesítmény átváltó ──────────────────────────────────────────────────
 
+type PowerUnit = 'kW' | 'W' | 'BTU/h' | 'kcal/h' | 'tonna hűtés';
+const POWER_UNITS: PowerUnit[] = ['kW', 'W', 'BTU/h', 'kcal/h', 'tonna hűtés'];
+const TO_KW: Record<PowerUnit, number> = {
+  'kW': 1,
+  'W': 0.001,
+  'BTU/h': 1 / 3412.14,
+  'kcal/h': 1 / 860,
+  'tonna hűtés': 3.51685,
+};
+const FROM_KW: Record<PowerUnit, number> = {
+  'kW': 1,
+  'W': 1000,
+  'BTU/h': 3412.14,
+  'kcal/h': 860,
+  'tonna hűtés': 1 / 3.51685,
+};
+
 function TeljesitmenyAtvalto() {
   const [open, setOpen] = useState(true);
-  const [fromUnit, setFromUnit] = useState<'kW' | 'BTU/h' | 'W' | 'kcal/h'>('kW');
-  const [toUnit, setToUnit]     = useState<'kW' | 'BTU/h' | 'W' | 'kcal/h'>('BTU/h');
+  const [fromUnit, setFromUnit] = useState<PowerUnit>('kW');
+  const [toUnit, setToUnit] = useState<PowerUnit>('BTU/h');
   const [inputVal, setInputVal] = useState('');
 
-  const UNITS: Array<'kW' | 'BTU/h' | 'W' | 'kcal/h'> = ['kW', 'BTU/h', 'W', 'kcal/h'];
+  const result = useMemo(() => {
+    const v = parseFloat(inputVal);
+    if (isNaN(v) || v < 0) return null;
+    const kw = v * TO_KW[fromUnit];
+    const out = kw * FROM_KW[toUnit];
+    // choose decimal places by magnitude
+    if (out >= 1000) return out.toFixed(1);
+    if (out >= 10)   return out.toFixed(2);
+    return out.toFixed(4);
+  }, [inputVal, fromUnit, toUnit]);
 
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Hűtéstechnika] Teljesítmény átváltó toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Hűtéstechnika] Teljesítmény átváltó toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Zap size={20} color={HVAC_CYAN} />
           <Text style={styles.cardTitle}>Teljesítmény átváltó</Text>
@@ -63,10 +93,9 @@ function TeljesitmenyAtvalto() {
 
       {open && (
         <View style={styles.cardBody}>
-          {/* From unit selector */}
           <Text style={styles.label}>Ebből</Text>
           <View style={styles.unitRow}>
-            {UNITS.map(u => (
+            {POWER_UNITS.map(u => (
               <TouchableOpacity
                 key={u}
                 style={[styles.unitBtn, fromUnit === u && styles.unitBtnActive]}
@@ -78,13 +107,12 @@ function TeljesitmenyAtvalto() {
             ))}
           </View>
 
-          {/* To unit selector */}
           <Text style={styles.label}>Ebbe</Text>
           <View style={styles.unitRow}>
-            {UNITS.map(u => (
+            {POWER_UNITS.map(u => (
               <TouchableOpacity
                 key={u}
-                style={[styles.unitBtn, toUnit === u && styles.unitBtnActive, { borderColor: HVAC_CYAN }]}
+                style={[styles.unitBtn, toUnit === u && { backgroundColor: HVAC_CYAN + '33', borderColor: HVAC_CYAN }]}
                 onPress={() => { console.log('[Hűtéstechnika] Teljesítmény to unit:', u); setToUnit(u); }}
                 activeOpacity={0.7}
               >
@@ -93,7 +121,6 @@ function TeljesitmenyAtvalto() {
             ))}
           </View>
 
-          {/* Value input */}
           <Text style={styles.label}>Érték</Text>
           <TextInput
             style={styles.inputLarge}
@@ -104,9 +131,13 @@ function TeljesitmenyAtvalto() {
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
-          {/* Result */}
           <View style={styles.resultBox}>
-            <ResultRow label="Eredmény" value="—" unit={toUnit} />
+            <ResultRow
+              label="Eredmény"
+              value={result ?? '—'}
+              unit={result ? toUnit : undefined}
+              highlight={result ? HVAC_CYAN : undefined}
+            />
           </View>
         </View>
       )}
