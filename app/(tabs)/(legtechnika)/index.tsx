@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
   segmentRow: {
     flexDirection: 'row',
@@ -956,7 +956,8 @@ const styles = StyleSheet.create({
     borderColor: HVAC_BORDER,
     borderRadius: 16,
     padding: 16,
-    gap: 10,
+    gap: 12,
+    marginTop: 16,
   },
   resultRow: {
     flexDirection: 'row',
@@ -998,7 +999,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: HVAC_TEXT_SECONDARY,
     lineHeight: 19,
-    marginTop: 4,
+    marginTop: 12,
+    marginBottom: 0,
   },
   inputRow: {
     flexDirection: 'row',

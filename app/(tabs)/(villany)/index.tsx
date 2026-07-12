@@ -596,7 +596,7 @@ function TeljesitmenyKalkulator() {
             </View>
           </View>
 
-          <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8 }}>
+          <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 12 }}>
             P és Q számításához add meg a cos φ értéket is (0–1 között).
           </Text>
         </View>
@@ -687,7 +687,7 @@ function VillanyszamlaKalkulator() {
                 {result?.baseFee ?? '—'} <Text style={styles.resultUnit}>Ft</Text>
               </Text>
             </View>
-            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 8, marginTop: 4 }]}>
               <Text style={[styles.resultLabel, { fontWeight: '600', color: HVAC_TEXT }]}>Becsült számla</Text>
               <Text style={[styles.resultValue, { color: result ? HVAC_BLUE : HVAC_TEXT }]}>
                 {result?.total ?? '—'} <Text style={styles.resultUnit}>Ft</Text>
@@ -695,7 +695,7 @@ function VillanyszamlaKalkulator() {
             </View>
           </View>
 
-          <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8 }}>
+          <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 12 }}>
             Az alapdíj opcionális – ha üresen hagyod, csak a fogyasztási díj kerül összesítésre.
           </Text>
         </View>
@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
   hintText: {
     fontSize: 13,
@@ -819,7 +819,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   calcBtnText: {
     color: '#FFFFFF',
@@ -829,7 +829,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 13,
     color: HVAC_RED,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   resultBox: {
     backgroundColor: HVAC_SURFACE,
@@ -837,7 +837,8 @@ const styles = StyleSheet.create({
     borderColor: HVAC_BORDER,
     borderRadius: 16,
     padding: 16,
-    gap: 10,
+    gap: 12,
+    marginTop: 16,
   },
   resultRow: {
     flexDirection: 'row',
@@ -865,14 +866,14 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: HVAC_BORDER,
-    marginVertical: 2,
+    marginVertical: 6,
   },
   segmentRow: {
     flexDirection: 'row',
     backgroundColor: HVAC_SURFACE,
     borderRadius: 12,
     padding: 4,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   segmentBtn: {
     flex: 1,

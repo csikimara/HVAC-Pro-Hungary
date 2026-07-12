@@ -550,7 +550,7 @@ function KompresszioviszonyKalkulator() {
               <Text style={styles.resultLabel}>Nyomónyomás abs.</Text>
               <Text style={[styles.resultValue, { color: result?.dAbs != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>{result?.dAbs ?? '—'} <Text style={styles.resultUnit}>bar</Text></Text>
             </View>
-            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 8, marginTop: 4 }]}>
               <Text style={[styles.resultLabel, { fontWeight: '600', color: HVAC_TEXT }]}>Kompresszióviszony</Text>
               <Text style={[styles.resultValue, { color: result?.ratingColor ?? HVAC_TEXT }]}>{result?.cr ?? '—'}</Text>
             </View>
@@ -645,7 +645,7 @@ function DeltaTKalkulator() {
           />
 
           <View style={styles.resultBox}>
-            <View style={[styles.resultRow, { borderBottomWidth: 1, borderBottomColor: HVAC_BORDER, paddingBottom: 10 }]}>
+            <View style={[styles.resultRow, { borderBottomWidth: 1, borderBottomColor: HVAC_BORDER, paddingBottom: 8 }]}>
               <Text style={[styles.resultLabel, { fontWeight: '600', color: HVAC_TEXT }]}>ΔT</Text>
               <Text style={[styles.resultValue, { color: result?.ratingColor ?? HVAC_TEXT }]}>
                 {result?.delta ?? '—'} <Text style={styles.resultUnit}>K</Text>
@@ -820,7 +820,7 @@ function GyorsHibagyanú() {
                 {result?.suspicion ?? '—'}
               </Text>
             </View>
-            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 8, marginTop: 4 }]}>
               <Text style={[styles.resultLabel, { flex: 0.45 }]}>Javasolt első lépés</Text>
               <Text style={[styles.resultValue, { fontSize: 14, flex: 0.55, textAlign: 'right', color: result ? HVAC_BLUE : HVAC_TEXT_SECONDARY }]}>
                 {result?.step ?? '—'}
@@ -974,7 +974,7 @@ function KompresszorElektromosEllenorzes() {
                 {result?.suspicion ?? '—'}
               </Text>
             </View>
-            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 8, marginTop: 4 }]}>
               <Text style={[styles.resultLabel, { flex: 0.4 }]}>Javasolt lépés</Text>
               <Text style={[styles.resultValue, { fontSize: 14, flex: 0.6, textAlign: 'right', color: result?.step != null ? HVAC_BLUE : HVAC_TEXT_SECONDARY }]}>
                 {result?.step ?? '—'}
@@ -1077,7 +1077,7 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
   sectionHeader: {
     fontSize: 12,
@@ -1086,7 +1086,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 12,
-    marginTop: 4,
+    marginTop: 8,
   },
   inputGrid: {
     flexDirection: 'row',
@@ -1108,7 +1108,7 @@ const styles = StyleSheet.create({
     padding: 12,
     color: HVAC_TEXT,
     fontSize: 15,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   calcBtn: {
     backgroundColor: HVAC_BLUE,
@@ -1145,6 +1145,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     gap: 12,
+    marginTop: 16,
     marginBottom: 12,
   },
   diagRow: {
@@ -1185,6 +1186,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: HVAC_BORDER,
+    marginVertical: 6,
   },
   recsCard: {
     backgroundColor: HVAC_SURFACE,
@@ -1205,12 +1207,12 @@ const styles = StyleSheet.create({
     color: HVAC_TEXT_SECONDARY,
     lineHeight: 20,
   },
-  segmentRow: { flexDirection: 'row', backgroundColor: HVAC_SURFACE, borderRadius: 12, padding: 4, marginBottom: 14 },
+  segmentRow: { flexDirection: 'row', backgroundColor: HVAC_SURFACE, borderRadius: 12, padding: 4, marginBottom: 12 },
   segmentBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
   segmentBtnActive: { backgroundColor: HVAC_BLUE },
   segmentText: { fontSize: 14, fontWeight: '600', color: HVAC_TEXT_SECONDARY },
   segmentBtnActiveText: { color: '#FFFFFF' },
-  noteText: { fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8, marginBottom: 4 },
+  noteText: { fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 12, marginBottom: 0 },
   resultRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   resultLabel: { fontSize: 14, color: HVAC_TEXT_SECONDARY, flex: 1 },
   resultValue: { fontSize: 18, fontWeight: '700', color: HVAC_TEXT },

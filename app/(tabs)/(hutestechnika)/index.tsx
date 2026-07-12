@@ -504,7 +504,7 @@ function PtTabla() {
             )}
           </View>
 
-          <Text style={[styles.noteText, { marginTop: 10 }]}>
+          <Text style={styles.noteText}>
             Telítési görbe alapján (abszolút nyomás). psig: 1,01325 bar atmoszferikus nyomással számolva.
           </Text>
         </View>
@@ -677,7 +677,7 @@ function TulhevitesUtohutes() {
             )}
           </View>
 
-          <Text style={[styles.noteText, { marginTop: 10 }]}>
+          <Text style={styles.noteText}>
             SH = szívócső hőm. − telítési hőm. SC = telítési hőm. − folyékonyvezeték hőm.
           </Text>
         </View>
@@ -785,7 +785,7 @@ function HutokörGyorsEllenorzes() {
             <ResultRow label="Diagnózis" value={result?.diagnosis ?? '—'} highlight={result?.color} />
           </View>
 
-          <Text style={[styles.noteText, { marginTop: 10 }]}>
+          <Text style={styles.noteText}>
             Az SH és SC kombinációján alapuló becslés. Pontos értékeléshez PT táblával mérd meg mindkét értéket.
           </Text>
         </View>
@@ -1341,7 +1341,7 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
   cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   cardTitle: { fontSize: 16, fontWeight: '600', color: HVAC_TEXT },
-  cardBody: { paddingHorizontal: 16, paddingBottom: 16 },
+  cardBody: { paddingHorizontal: 16, paddingBottom: 20 },
   label: { fontSize: 13, color: HVAC_TEXT_SECONDARY, marginBottom: 6 },
   inputLarge: {
     backgroundColor: HVAC_SURFACE,
@@ -1352,22 +1352,22 @@ const styles = StyleSheet.create({
     color: HVAC_TEXT,
     fontSize: 22,
     fontWeight: '600',
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  unitRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  unitRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   unitBtn: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, backgroundColor: HVAC_SURFACE, borderWidth: 1, borderColor: HVAC_BORDER },
   unitBtnActive: { backgroundColor: HVAC_BLUE, borderColor: HVAC_BLUE },
   unitBtnText: { fontSize: 13, fontWeight: '600', color: HVAC_TEXT_SECONDARY },
   unitBtnTextActive: { color: '#FFFFFF' },
-  segmentRow: { flexDirection: 'row', backgroundColor: HVAC_SURFACE, borderRadius: 12, padding: 4, marginBottom: 14 },
+  segmentRow: { flexDirection: 'row', backgroundColor: HVAC_SURFACE, borderRadius: 12, padding: 4, marginBottom: 12 },
   segmentBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
   segmentBtnActive: { backgroundColor: HVAC_BLUE },
   segmentText: { fontSize: 14, fontWeight: '600', color: HVAC_TEXT_SECONDARY },
   segmentTextActive: { color: '#FFFFFF' },
-  resultBox: { backgroundColor: HVAC_SURFACE, borderWidth: 1, borderColor: HVAC_BORDER, borderRadius: 16, padding: 16, gap: 10, marginTop: 4 },
+  resultBox: { backgroundColor: HVAC_SURFACE, borderWidth: 1, borderColor: HVAC_BORDER, borderRadius: 16, padding: 16, gap: 12, marginTop: 16 },
   resultRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   resultLabel: { fontSize: 14, color: HVAC_TEXT_SECONDARY, flex: 1 },
   resultValue: { fontSize: 20, fontWeight: '700', color: HVAC_TEXT },
   resultUnit: { fontSize: 13, color: HVAC_TEXT_SECONDARY },
-  noteText: { fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginBottom: 12 },
+  noteText: { fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 12, marginBottom: 0 },
 });
