@@ -503,14 +503,61 @@ function PtTabla() {
 
 function TulhevitesUtohutes() {
   const [open, setOpen] = useState(true);
-  const [suctionTemp, setSuctionTemp] = useState('');
-  const [saturationTemp, setSaturationTemp] = useState('');
-  const [liquidTemp, setLiquidTemp] = useState('');
-  const [condensationTemp, setCondensationTemp] = useState('');
+  const [mode, setMode] = useState<'SH' | 'SC'>('SH');
+  const [refrigerant, setRefrigerant] = useState<'R32' | 'R410A' | 'R134a'>('R32');
+  const [pressure, setPressure] = useState('');
+  const [pressureUnit, setPressureUnit] = useState<'bar' | 'kPa' | 'Pa' | 'psig'>('bar');
+  const [pipeTemp, setPipeTemp] = useState('');
+
+  const REFRIGERANTS: Array<'R32' | 'R410A' | 'R134a'> = ['R32', 'R410A', 'R134a'];
+  const PUNITS: Array<'bar' | 'kPa' | 'Pa' | 'psig'> = ['bar', 'kPa', 'Pa', 'psig'];
+
+  const result = useMemo(() => {
+    const p = parseFloat(pressure);
+    const t = parseFloat(pipeTemp);
+    if (isNaN(p) || p <= 0 || isNaN(t)) return null;
+
+    const pBar = toBar(p, pressureUnit);
+    const ptResult = interpolatePT(PT_DATA[refrigerant], pBar);
+    if (ptResult.outOfRange || !ptResult.temp) return { outOfRange: true };
+
+    const tSat = parseFloat(ptResult.temp);
+    const delta = mode === 'SH' ? t - tSat : tSat - t;
+
+    let quality: string;
+    let qualityColor: string;
+    if (mode === 'SH') {
+      if (delta < 0)       { quality = 'Nedves gőz – veszélyes!'; qualityColor = HVAC_RED; }
+      else if (delta < 5)  { quality = 'Alacsony – ellenőrizendő'; qualityColor = HVAC_YELLOW; }
+      else if (delta <= 12){ quality = 'Megfelelő'; qualityColor = HVAC_GREEN; }
+      else                 { quality = 'Magas – ellenőrizendő'; qualityColor = HVAC_YELLOW; }
+    } else {
+      if (delta < 0)       { quality = 'Nincs utóhűtés'; qualityColor = HVAC_YELLOW; }
+      else if (delta < 3)  { quality = 'Alacsony'; qualityColor = HVAC_YELLOW; }
+      else if (delta <= 10){ quality = 'Megfelelő'; qualityColor = HVAC_GREEN; }
+      else                 { quality = 'Magas – ellenőrizendő'; qualityColor = HVAC_YELLOW; }
+    }
+
+    return {
+      outOfRange: false,
+      tSat: tSat.toFixed(1),
+      delta: delta.toFixed(1),
+      quality,
+      qualityColor,
+    };
+  }, [pressure, pressureUnit, pipeTemp, refrigerant, mode]);
+
+  const modeLabel = mode === 'SH' ? 'Túlhevítés' : 'Utóhűtés';
+  const pipeTempLabel = mode === 'SH' ? 'Szívócső hőmérséklete (°C)' : 'Folyékonyvezeték hőmérséklete (°C)';
+  const pipeTempPlaceholder = mode === 'SH' ? 'pl. 15' : 'pl. 30';
 
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Hűtéstechnika] Túlhevítés/utóhűtés toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Hűtéstechnika] Túlhevítés/utóhűtés toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Thermometer size={20} color={HVAC_YELLOW} />
           <Text style={styles.cardTitle}>Túlhevítés / utóhűtés</Text>
@@ -520,53 +567,104 @@ function TulhevitesUtohutes() {
 
       {open && (
         <View style={styles.cardBody}>
-          <Text style={styles.label}>Szívócső hőmérséklet (°C)</Text>
+          {/* Mode toggle */}
+          <View style={styles.segmentRow}>
+            {(['SH', 'SC'] as const).map(m => (
+              <TouchableOpacity
+                key={m}
+                style={[styles.segmentBtn, mode === m && styles.segmentBtnActive]}
+                onPress={() => { console.log('[Hűtéstechnika] SH/SC mode:', m); setMode(m); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, mode === m && styles.segmentTextActive]}>
+                  {m === 'SH' ? 'Túlhevítés (SH)' : 'Utóhűtés (SC)'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Refrigerant */}
+          <Text style={styles.label}>Hűtőközeg</Text>
+          <View style={styles.segmentRow}>
+            {REFRIGERANTS.map(r => (
+              <TouchableOpacity
+                key={r}
+                style={[styles.segmentBtn, refrigerant === r && styles.segmentBtnActive]}
+                onPress={() => { console.log('[Hűtéstechnika] SH/SC refrigerant:', r); setRefrigerant(r); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, refrigerant === r && styles.segmentTextActive]}>{r}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Pressure unit */}
+          <Text style={styles.label}>Nyomásegység</Text>
+          <View style={styles.unitRow}>
+            {PUNITS.map(u => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.unitBtn, pressureUnit === u && styles.unitBtnActive]}
+                onPress={() => { console.log('[Hűtéstechnika] SH/SC pressure unit:', u); setPressureUnit(u); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.unitBtnText, pressureUnit === u && styles.unitBtnTextActive]}>{u}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Pressure input */}
+          <Text style={styles.label}>
+            {mode === 'SH' ? 'Szívónyomás' : 'Kondenzációs nyomás'} ({pressureUnit})
+          </Text>
           <TextInput
             style={styles.inputLarge}
-            value={suctionTemp}
-            onChangeText={v => { console.log('[Hűtéstechnika] Szívócső hőmérséklet input:', v); setSuctionTemp(v); }}
+            value={pressure}
+            onChangeText={v => { console.log('[Hűtéstechnika] SH/SC nyomás input:', v); setPressure(v); }}
             keyboardType="numeric"
-            placeholder="pl. 15"
+            placeholder={pressureUnit === 'bar' ? 'pl. 8.5' : pressureUnit === 'kPa' ? 'pl. 850' : pressureUnit === 'psig' ? 'pl. 108' : 'pl. 850000'}
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
-          <Text style={styles.label}>Telítési hőmérséklet (°C)</Text>
+          {/* Pipe temp input */}
+          <Text style={styles.label}>{pipeTempLabel}</Text>
           <TextInput
             style={styles.inputLarge}
-            value={saturationTemp}
-            onChangeText={v => { console.log('[Hűtéstechnika] Telítési hőmérséklet input:', v); setSaturationTemp(v); }}
+            value={pipeTemp}
+            onChangeText={v => { console.log('[Hűtéstechnika] SH/SC cső hőmérséklet input:', v); setPipeTemp(v); }}
             keyboardType="numeric"
-            placeholder="pl. 5"
+            placeholder={pipeTempPlaceholder}
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
-          <Text style={styles.label}>Folyékony fázis hőmérséklet (°C)</Text>
-          <TextInput
-            style={styles.inputLarge}
-            value={liquidTemp}
-            onChangeText={v => { console.log('[Hűtéstechnika] Folyékony fázis hőmérséklet input:', v); setLiquidTemp(v); }}
-            keyboardType="numeric"
-            placeholder="pl. 30"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
-
-          <Text style={styles.label}>Kondenzációs hőmérséklet (°C)</Text>
-          <TextInput
-            style={styles.inputLarge}
-            value={condensationTemp}
-            onChangeText={v => { console.log('[Hűtéstechnika] Kondenzációs hőmérséklet input:', v); setCondensationTemp(v); }}
-            keyboardType="numeric"
-            placeholder="pl. 40"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
-
+          {/* Result box */}
           <View style={styles.resultBox}>
-            <ResultRow label="Túlhevítés (SH)" value="—" unit="K" />
-            <ResultRow label="Utóhűtés (SC)" value="—" unit="K" />
+            {result?.outOfRange ? (
+              <ResultRow label="Telítési hőmérséklet" value="Tartományon kívül" highlight={HVAC_YELLOW} />
+            ) : (
+              <>
+                <ResultRow
+                  label="Telítési hőmérséklet (PT)"
+                  value={result?.tSat ?? '—'}
+                  unit={result?.tSat ? '°C' : undefined}
+                />
+                <ResultRow
+                  label={modeLabel}
+                  value={result?.delta ?? '—'}
+                  unit={result?.delta ? 'K' : undefined}
+                  highlight={result?.qualityColor}
+                />
+                <ResultRow
+                  label="Értékelés"
+                  value={result?.quality ?? '—'}
+                  highlight={result?.qualityColor}
+                />
+              </>
+            )}
           </View>
 
           <Text style={[styles.noteText, { marginTop: 10 }]}>
-            Számítás hamarosan elérhető.
+            A telítési hőmérséklet a PT táblából kerül meghatározásra. SH = szívócső hőmérséklet − telítési hőmérséklet. SC = telítési hőmérséklet − folyékonyvezeték hőmérséklete.
           </Text>
         </View>
       )}
