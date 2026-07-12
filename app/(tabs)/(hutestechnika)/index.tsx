@@ -348,17 +348,81 @@ function Nyomaspróba() {
 
 // ─── 4. PT tábla ──────────────────────────────────────────────────────────────
 
+// ─── PT data: [pressure_bar, temp_°C] saturation points ──────────────────────
+const PT_DATA: Record<string, [number, number][]> = {
+  R32: [
+    [1.65, -40], [2.09, -35], [2.62, -30], [3.25, -25], [3.99, -20],
+    [4.86, -15], [5.87, -10], [7.03, -5],  [8.36, 0],   [9.87, 5],
+    [11.58, 10], [13.50, 15], [15.65, 20], [18.05, 25], [20.72, 30],
+    [23.68, 35], [26.95, 40], [30.55, 45], [34.51, 50],
+  ],
+  R410A: [
+    [2.48, -40], [3.10, -35], [3.84, -30], [4.72, -25], [5.75, -20],
+    [6.95, -15], [8.33, -10], [9.92, -5],  [11.73, 0],  [13.78, 5],
+    [16.09, 10], [18.68, 15], [21.58, 20], [24.81, 25], [28.40, 30],
+    [32.37, 35], [36.76, 40], [41.60, 45], [46.93, 50],
+  ],
+  R134a: [
+    [0.51, -40], [0.66, -35], [0.84, -30], [1.06, -25], [1.33, -20],
+    [1.65, -15], [2.01, -10], [2.43, -5],  [2.93, 0],   [3.50, 5],
+    [4.15, 10],  [4.89, 15],  [5.72, 20],  [6.65, 25],  [7.70, 30],
+    [8.87, 35],  [10.17, 40], [11.60, 45], [13.18, 50],
+  ],
+};
+
+// Unit conversion to bar
+function toBar(val: number, unit: string): number {
+  if (unit === 'bar')  return val;
+  if (unit === 'kPa')  return val / 100;
+  if (unit === 'Pa')   return val / 100000;
+  if (unit === 'psig') return val * 0.0689476 + 1.01325; // gauge to absolute bar
+  return val;
+}
+
+function interpolatePT(table: [number, number][], pBar: number): { temp: string; exact: boolean; outOfRange: boolean } {
+  if (pBar <= 0) return { temp: '', exact: false, outOfRange: true };
+  const min = table[0][0];
+  const max = table[table.length - 1][0];
+  if (pBar < min || pBar > max) return { temp: '', exact: false, outOfRange: true };
+
+  for (let i = 0; i < table.length; i++) {
+    if (Math.abs(table[i][0] - pBar) < 0.001) {
+      return { temp: table[i][1].toFixed(1), exact: true, outOfRange: false };
+    }
+    if (i < table.length - 1 && pBar > table[i][0] && pBar < table[i + 1][0]) {
+      const [p0, t0] = table[i];
+      const [p1, t1] = table[i + 1];
+      const t = t0 + (t1 - t0) * (pBar - p0) / (p1 - p0);
+      return { temp: t.toFixed(1), exact: false, outOfRange: false };
+    }
+  }
+  return { temp: '', exact: false, outOfRange: true };
+}
+
 function PtTabla() {
   const [open, setOpen] = useState(true);
-  const [refrigerant, setRefrigerant] = useState<'R32' | 'R410A' | 'R134a' | 'R404A'>('R32');
+  const [refrigerant, setRefrigerant] = useState<'R32' | 'R410A' | 'R134a'>('R32');
   const [pressure, setPressure] = useState('');
-  const [temperature, setTemperature] = useState('');
+  const [unit, setUnit] = useState<'bar' | 'kPa' | 'Pa' | 'psig'>('bar');
 
-  const REFRIGERANTS: Array<'R32' | 'R410A' | 'R134a' | 'R404A'> = ['R32', 'R410A', 'R134a', 'R404A'];
+  const REFRIGERANTS: Array<'R32' | 'R410A' | 'R134a'> = ['R32', 'R410A', 'R134a'];
+  const UNITS: Array<'bar' | 'kPa' | 'Pa' | 'psig'> = ['bar', 'kPa', 'Pa', 'psig'];
+
+  const result = useMemo(() => {
+    const v = parseFloat(pressure);
+    if (isNaN(v) || v <= 0) return null;
+    const pBar = toBar(v, unit);
+    const table = PT_DATA[refrigerant];
+    return interpolatePT(table, pBar);
+  }, [pressure, unit, refrigerant]);
 
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Hűtéstechnika] PT tábla toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Hűtéstechnika] PT tábla toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Table2 size={20} color={HVAC_CYAN} />
           <Text style={styles.cardTitle}>PT tábla</Text>
@@ -382,33 +446,52 @@ function PtTabla() {
             ))}
           </View>
 
-          <Text style={styles.label}>Nyomás (bar)</Text>
+          <Text style={styles.label}>Nyomásegység</Text>
+          <View style={styles.unitRow}>
+            {UNITS.map(u => (
+              <TouchableOpacity
+                key={u}
+                style={[styles.unitBtn, unit === u && styles.unitBtnActive]}
+                onPress={() => { console.log('[Hűtéstechnika] PT tábla unit:', u); setUnit(u); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.unitBtnText, unit === u && styles.unitBtnTextActive]}>{u}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Nyomás ({unit})</Text>
           <TextInput
             style={styles.inputLarge}
             value={pressure}
             onChangeText={v => { console.log('[Hűtéstechnika] PT tábla nyomás input:', v); setPressure(v); }}
             keyboardType="numeric"
-            placeholder="pl. 10.5"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
-
-          <Text style={styles.label}>Hőmérséklet (°C)</Text>
-          <TextInput
-            style={styles.inputLarge}
-            value={temperature}
-            onChangeText={v => { console.log('[Hűtéstechnika] PT tábla hőmérséklet input:', v); setTemperature(v); }}
-            keyboardType="numeric"
-            placeholder="pl. 28.5"
+            placeholder={unit === 'bar' ? 'pl. 10.5' : unit === 'kPa' ? 'pl. 1050' : unit === 'psig' ? 'pl. 137' : 'pl. 1050000'}
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
           <View style={styles.resultBox}>
-            <ResultRow label="Telítési hőmérséklet" value="—" unit="°C" />
-            <ResultRow label="Telítési nyomás" value="—" unit="bar" />
+            {result?.outOfRange ? (
+              <ResultRow label="Telítési hőmérséklet" value="Tartományon kívül" highlight={HVAC_YELLOW} />
+            ) : (
+              <>
+                <ResultRow
+                  label="Telítési hőmérséklet"
+                  value={result?.temp ?? '—'}
+                  unit={result?.temp ? '°C' : undefined}
+                  highlight={result?.temp ? HVAC_CYAN : undefined}
+                />
+                <ResultRow
+                  label="Forrás"
+                  value={result === null ? '—' : result.exact ? 'Táblapont egyezés' : 'Interpolált érték'}
+                  highlight={result === null ? undefined : result.exact ? HVAC_GREEN : HVAC_BLUE}
+                />
+              </>
+            )}
           </View>
 
           <Text style={[styles.noteText, { marginTop: 10 }]}>
-            A PT tábla a hűtőközeg telítési görbéjét mutatja. Hamarosan elérhető.
+            Az adatok telítési görbén alapulnak (abszolút nyomás). psig esetén 1,01325 bar atmoszferikus nyomással számol.
           </Text>
         </View>
       )}
