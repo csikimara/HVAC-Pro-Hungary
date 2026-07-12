@@ -29,12 +29,6 @@ function getVelocityColor(v: number): string {
   return HVAC_RED;
 }
 
-function getPressureDropColor(r: number): string {
-  if (r <= 1.0) return HVAC_GREEN;
-  if (r <= 2.0) return HVAC_YELLOW;
-  return HVAC_RED;
-}
-
 // ─── Duct Sizing ──────────────────────────────────────────────────────────────
 
 function DuctSizingTool() {
@@ -222,46 +216,13 @@ function DuctSizingTool() {
 
 function PressureDropTool() {
   const [open, setOpen] = useState(true);
-  const [Q, setQ] = useState('');
-  const [D, setD] = useState('');
-  const [L, setL] = useState('');
-  const [lambda, setLambda] = useState('0.02');
-
-  type PressureDropResult = {
-    velocity: string;
-    pressureDrop: string;
-    specificDrop: string;
-    specificColor: string;
-  };
-
-  const [result, setResult] = useState<PressureDropResult | null>(null);
-
-  function calculate() {
-    console.log('[Légtechnika] Nyomásesés számítás, Q:', Q, 'D:', D, 'L:', L, 'λ:', lambda);
-    const qVal = parseFloat(Q);
-    const dVal = parseFloat(D);
-    const lVal = parseFloat(L);
-    const lambdaVal = parseFloat(lambda);
-
-    if (isNaN(qVal) || isNaN(dVal) || isNaN(lVal) || isNaN(lambdaVal) || dVal <= 0 || lVal <= 0) {
-      setResult(null);
-      return;
-    }
-
-    const dM = dVal / 1000;
-    const area = Math.PI * Math.pow(dM, 2) / 4;
-    const velocity = qVal / (3600 * area);
-    const rho = 1.2;
-    const deltaP = lambdaVal * (lVal / dM) * (rho * Math.pow(velocity, 2)) / 2;
-    const R = deltaP / lVal;
-
-    setResult({
-      velocity: velocity.toFixed(2),
-      pressureDrop: deltaP.toFixed(2),
-      specificDrop: R.toFixed(3),
-      specificColor: getPressureDropColor(R),
-    });
-  }
+  const [airflow, setAirflow] = useState('');
+  const [airflowUnit, setAirflowUnit] = useState<'m³/h' | 'l/s'>('m³/h');
+  const [ductLength, setDuctLength] = useState('');
+  const [lengthUnit, setLengthUnit] = useState<'m' | 'mm'>('m');
+  const [ductSize, setDuctSize] = useState('');
+  const [sizeUnit, setSizeUnit] = useState<'mm' | 'cm'>('mm');
+  const [roughness, setRoughness] = useState('');
 
   return (
     <View style={styles.card}>
@@ -282,26 +243,127 @@ function PressureDropTool() {
 
       {open && (
         <View style={styles.cardBody}>
-          <Text style={styles.label}>Légmennyiség Q (m³/h)</Text>
-          <TextInput style={styles.input} value={Q} onChangeText={setQ} keyboardType="numeric" placeholder="pl. 500" placeholderTextColor={HVAC_TEXT_SECONDARY} />
-          <Text style={styles.label}>Csatorna átmérő D (mm)</Text>
-          <TextInput style={styles.input} value={D} onChangeText={setD} keyboardType="numeric" placeholder="pl. 200" placeholderTextColor={HVAC_TEXT_SECONDARY} />
-          <Text style={styles.label}>Csatorna hossz L (m)</Text>
-          <TextInput style={styles.input} value={L} onChangeText={setL} keyboardType="numeric" placeholder="pl. 10" placeholderTextColor={HVAC_TEXT_SECONDARY} />
-          <Text style={styles.label}>Súrlódási tényező λ</Text>
-          <TextInput style={styles.input} value={lambda} onChangeText={setLambda} keyboardType="numeric" placeholder="0.02" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+          {/* Légszállítás */}
+          <Text style={styles.label}>Légszállítás</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              value={airflow}
+              onChangeText={text => {
+                console.log('[Légtechnika] Nyomásesés légszállítás input:', text);
+                setAirflow(text);
+              }}
+              keyboardType="numeric"
+              placeholder="pl. 500"
+              placeholderTextColor={HVAC_TEXT_SECONDARY}
+            />
+            {(['m³/h', 'l/s'] as const).map(u => {
+              const isActive = airflowUnit === u;
+              return (
+                <TouchableOpacity
+                  key={u}
+                  style={[styles.unitBtn, isActive && styles.unitBtnActive]}
+                  onPress={() => {
+                    console.log('[Légtechnika] Nyomásesés légszállítás egység:', u);
+                    setAirflowUnit(u);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.unitBtnText, isActive && styles.unitBtnTextActive]}>
+                    {u}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-          <TouchableOpacity style={styles.calcBtn} onPress={calculate} activeOpacity={0.8}>
-            <Text style={styles.calcBtnText}>Kiszámít</Text>
-          </TouchableOpacity>
+          {/* Csatornahossz */}
+          <Text style={styles.label}>Csatornahossz</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              value={ductLength}
+              onChangeText={text => {
+                console.log('[Légtechnika] Nyomásesés csatornahossz input:', text);
+                setDuctLength(text);
+              }}
+              keyboardType="numeric"
+              placeholder="pl. 10"
+              placeholderTextColor={HVAC_TEXT_SECONDARY}
+            />
+            {(['m', 'mm'] as const).map(u => {
+              const isActive = lengthUnit === u;
+              return (
+                <TouchableOpacity
+                  key={u}
+                  style={[styles.unitBtn, isActive && styles.unitBtnActive]}
+                  onPress={() => {
+                    console.log('[Légtechnika] Nyomásesés hossz egység:', u);
+                    setLengthUnit(u);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.unitBtnText, isActive && styles.unitBtnTextActive]}>
+                    {u}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-          {result && (
-            <View style={styles.resultBox}>
-              <ResultRow label="Légsebesség" value={result.velocity} unit="m/s" />
-              <ResultRow label="Nyomásesés" value={result.pressureDrop} unit="Pa" highlight={HVAC_BLUE} />
-              <ResultRow label="Fajlagos nyomásesés" value={result.specificDrop} unit="Pa/m" highlight={result.specificColor} />
-            </View>
-          )}
+          {/* Csatornaméret */}
+          <Text style={styles.label}>Csatornaméret</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              value={ductSize}
+              onChangeText={text => {
+                console.log('[Légtechnika] Nyomásesés csatornaméret input:', text);
+                setDuctSize(text);
+              }}
+              keyboardType="numeric"
+              placeholder="pl. 200"
+              placeholderTextColor={HVAC_TEXT_SECONDARY}
+            />
+            {(['mm', 'cm'] as const).map(u => {
+              const isActive = sizeUnit === u;
+              return (
+                <TouchableOpacity
+                  key={u}
+                  style={[styles.unitBtn, isActive && styles.unitBtnActive]}
+                  onPress={() => {
+                    console.log('[Légtechnika] Nyomásesés méret egység:', u);
+                    setSizeUnit(u);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.unitBtnText, isActive && styles.unitBtnTextActive]}>
+                    {u}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Anyag / érdesség */}
+          <Text style={styles.label}>Anyag / érdesség</Text>
+          <TextInput
+            style={styles.input}
+            value={roughness}
+            onChangeText={text => {
+              console.log('[Légtechnika] Nyomásesés érdesség input:', text);
+              setRoughness(text);
+            }}
+            placeholder="pl. acél, beton, műanyag"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          {/* Static result placeholder */}
+          <View style={styles.resultBox}>
+            <ResultRow label="Légsebesség" value="—" unit="m/s" />
+            <ResultRow label="Nyomásesés" value="—" unit="Pa" />
+            <ResultRow label="Fajlagos nyomásesés" value="—" unit="Pa/m" />
+          </View>
         </View>
       )}
     </View>
