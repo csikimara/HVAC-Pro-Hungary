@@ -113,7 +113,7 @@ function DuctSizingTool() {
       >
         <View style={styles.cardHeaderLeft}>
           <Ruler size={20} color={HVAC_BLUE} />
-          <Text style={styles.cardTitle}>Légcsatorna méretezés</Text>
+          <Text style={styles.cardTitle}>Légcsatorna-méretezés</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
@@ -139,7 +139,7 @@ function DuctSizingTool() {
             ))}
           </View>
 
-          <Text style={styles.label}>Légmennyiség Q (m³/h)</Text>
+          <Text style={styles.label}>Légmennyiség (m³/h)</Text>
           <TextInput
             style={styles.input}
             value={Q}
@@ -151,13 +151,13 @@ function DuctSizingTool() {
 
           {ductType === 'kor' && (
             <>
-              <Text style={styles.label}>Max. légsebesség v (m/s)</Text>
+              <Text style={styles.label}>Max. légsebesség (m/s)</Text>
               <TextInput
                 style={styles.input}
                 value={v}
                 onChangeText={setV}
                 keyboardType="numeric"
-                placeholder="3.0"
+                placeholder="pl. 3,0"
                 placeholderTextColor={HVAC_TEXT_SECONDARY}
               />
             </>
@@ -165,7 +165,7 @@ function DuctSizingTool() {
 
           {ductType === 'teglalap' && (
             <>
-              <Text style={styles.label}>Szélesség a (mm)</Text>
+              <Text style={styles.label}>Szélesség (mm)</Text>
               <TextInput
                 style={styles.input}
                 value={a}
@@ -174,7 +174,7 @@ function DuctSizingTool() {
                 placeholder="pl. 400"
                 placeholderTextColor={HVAC_TEXT_SECONDARY}
               />
-              <Text style={styles.label}>Magasság b (mm)</Text>
+              <Text style={styles.label}>Magasság (mm)</Text>
               <TextInput
                 style={styles.input}
                 value={b}
@@ -187,20 +187,20 @@ function DuctSizingTool() {
           )}
 
           <TouchableOpacity style={styles.calcBtn} onPress={calculate} activeOpacity={0.8}>
-            <Text style={styles.calcBtnText}>Kiszámít</Text>
+            <Text style={styles.calcBtnText}>Számítás</Text>
           </TouchableOpacity>
 
           {result && (
             <View style={styles.resultBox}>
               {ductType === 'kor' ? (
                 <>
-                  <ResultRow label="Számított átmérő" value={result.calcDiameter} unit="mm" />
-                  <ResultRow label="Ajánlott szabványméret" value={result.stdDiameter} unit="mm" highlight={HVAC_BLUE} />
-                  <ResultRow label="Légsebesség (szabványmérettel)" value={result.actualVelocity} unit="m/s" highlight={result.velocityColor} />
+                  <ResultRow label="Számított Ø" value={result.calcDiameter} unit="mm" />
+                  <ResultRow label="Szabványméret" value={result.stdDiameter} unit="mm" highlight={HVAC_BLUE} />
+                  <ResultRow label="Tényleges sebesség" value={result.actualVelocity} unit="m/s" highlight={result.velocityColor} />
                 </>
               ) : (
                 <>
-                  <ResultRow label="Ekvivalens átmérő" value={result.eqDiameter} unit="mm" />
+                  <ResultRow label="Ekv. átmérő" value={result.eqDiameter} unit="mm" />
                   <ResultRow label="Keresztmetszet" value={result.area} unit="cm²" />
                   <ResultRow label="Légsebesség" value={result.rectVelocity} unit="m/s" highlight={result.rectVelocityColor} />
                 </>
@@ -274,15 +274,15 @@ function PressureDropTool() {
       >
         <View style={styles.cardHeaderLeft}>
           <TrendingDown size={20} color={HVAC_BLUE} />
-          <Text style={styles.cardTitle}>Nyomásesés számítás</Text>
+          <Text style={styles.cardTitle}>Nyomásesés</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
 
       {open && (
         <View style={styles.cardBody}>
-          {/* Légszállítás */}
-          <Text style={styles.label}>Légszállítás</Text>
+          {/* Légmennyiség */}
+          <Text style={styles.label}>Légmennyiség</Text>
           <View style={styles.inputRow}>
             <TextInput
               style={[styles.input, { flex: 1, marginBottom: 0 }]}
@@ -315,8 +315,8 @@ function PressureDropTool() {
             })}
           </View>
 
-          {/* Csatornahossz */}
-          <Text style={styles.label}>Csatornahossz</Text>
+          {/* Csatornaszakasz hossza */}
+          <Text style={styles.label}>Csatornaszakasz hossza</Text>
           <View style={styles.inputRow}>
             <TextInput
               style={[styles.input, { flex: 1, marginBottom: 0 }]}
@@ -349,8 +349,8 @@ function PressureDropTool() {
             })}
           </View>
 
-          {/* Csatornaméret */}
-          <Text style={styles.label}>Csatornaméret</Text>
+          {/* Csatorna Ø */}
+          <Text style={styles.label}>Csatorna Ø</Text>
           <View style={styles.inputRow}>
             <TextInput
               style={[styles.input, { flex: 1, marginBottom: 0 }]}
@@ -383,8 +383,8 @@ function PressureDropTool() {
             })}
           </View>
 
-          {/* Anyag / érdesség */}
-          <Text style={styles.label}>Anyag / érdesség</Text>
+          {/* Súrlódási tényező λ */}
+          <Text style={styles.label}>Súrlódási tényező λ</Text>
           <TextInput
             style={styles.input}
             value={roughness}
@@ -392,13 +392,13 @@ function PressureDropTool() {
               console.log('[Légtechnika] Nyomásesés érdesség input:', text);
               setRoughness(text);
             }}
-            placeholder="pl. acél, beton, műanyag"
+            placeholder="alapért. 0,02"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
           <View style={styles.resultBox}>
             <ResultRow label="Légsebesség" value={result?.velocity ?? '—'} unit="m/s" highlight={result?.velocityColor} />
-            <ResultRow label="Nyomásesés" value={result?.pressureDrop ?? '—'} unit="Pa" highlight={result?.pressureDrop ? HVAC_BLUE : undefined} />
+            <ResultRow label="Teljes nyomásesés" value={result?.pressureDrop ?? '—'} unit="Pa" highlight={result?.pressureDrop ? HVAC_BLUE : undefined} />
             <ResultRow label="Fajlagos nyomásesés" value={result?.specificDrop ?? '—'} unit="Pa/m" highlight={result?.specificColor} />
           </View>
         </View>
@@ -521,8 +521,8 @@ function PipeSizingTool() {
             ))}
           </View>
 
-          {/* Légszállítás row */}
-          <Text style={styles.label}>Légszállítás</Text>
+          {/* Légmennyiség row */}
+          <Text style={styles.label}>Légmennyiség</Text>
           <View style={styles.inputRow}>
             <TextInput
               style={[styles.input, { flex: 1, marginBottom: 0 }]}
@@ -556,7 +556,7 @@ function PipeSizingTool() {
           </View>
 
           {/* Sebesség row */}
-          <Text style={styles.label}>Max. sebesség</Text>
+          <Text style={styles.label}>Max. légsebesség</Text>
           <View style={styles.inputRow}>
             <TextInput
               style={[styles.input, { flex: 1, marginBottom: 0 }]}
@@ -566,7 +566,7 @@ function PipeSizingTool() {
                 setVelocity(text);
               }}
               keyboardType="numeric"
-              placeholder="pl. 3.0"
+              placeholder="pl. 3,0"
               placeholderTextColor={HVAC_TEXT_SECONDARY}
             />
             <View style={styles.unitBtn}>
@@ -576,7 +576,7 @@ function PipeSizingTool() {
 
           {shape === 'teglalap' && (
             <>
-              <Text style={styles.label}>Szélesség a (mm)</Text>
+              <Text style={styles.label}>Szélesség (mm)</Text>
               <TextInput
                 style={styles.input}
                 value={rectWidth}
@@ -585,7 +585,7 @@ function PipeSizingTool() {
                 placeholder="pl. 400"
                 placeholderTextColor={HVAC_TEXT_SECONDARY}
               />
-              <Text style={styles.label}>Magasság b (mm)</Text>
+              <Text style={styles.label}>Magasság (mm)</Text>
               <TextInput
                 style={styles.input}
                 value={rectHeight}
@@ -600,14 +600,14 @@ function PipeSizingTool() {
           <View style={styles.resultBox}>
             {shape === 'kor' ? (
               <>
-                <ResultRow label="Számított átmérő" value={result?.diameter ?? '—'} unit="mm" />
-                <ResultRow label="Ajánlott méret" value={result?.recommended ?? '—'} unit="mm" highlight={result ? HVAC_BLUE : undefined} />
-                <ResultRow label="Légsebesség" value={result?.velocity ?? '—'} unit="m/s" highlight={result?.velocityColor} />
+                <ResultRow label="Számított Ø" value={result?.diameter ?? '—'} unit="mm" />
+                <ResultRow label="Szabványméret" value={result?.recommended ?? '—'} unit="mm" highlight={result ? HVAC_BLUE : undefined} />
+                <ResultRow label="Tényleges sebesség" value={result?.velocity ?? '—'} unit="m/s" highlight={result?.velocityColor} />
               </>
             ) : (
               <>
-                <ResultRow label="Keresztmetszet" value={result?.crossSection ?? '—'} unit="cm²" />
-                <ResultRow label="Ekvivalens átmérő" value={result?.eqDiameter ?? '—'} unit="mm" />
+                <ResultRow label="Szükséges keresztmetszet" value={result?.crossSection ?? '—'} unit="cm²" />
+                <ResultRow label="Ekv. átmérő" value={result?.eqDiameter ?? '—'} unit="mm" />
                 <ResultRow label="Légsebesség" value={result?.velocity ?? '—'} unit="m/s" highlight={result?.velocityColor} />
               </>
             )}
