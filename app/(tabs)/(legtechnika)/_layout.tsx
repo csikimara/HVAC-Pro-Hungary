@@ -5,6 +5,7 @@ export default function Layout() {
     <Stack>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="legelosztás" options={{ headerShown: false }} />
+      <Stack.Screen name="legelosztasscreen" options={{ headerShown: false }} />
     </Stack>
   );
 }

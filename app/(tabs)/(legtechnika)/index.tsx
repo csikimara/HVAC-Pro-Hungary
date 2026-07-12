@@ -838,7 +838,7 @@ export default function LegtechnikaScreen() {
           }}
           onPress={() => {
             console.log('[Légtechnika] Navigálás: Légelosztás');
-            router.push('/(tabs)/(legtechnika)/legelosztás');
+            router.push('/(tabs)/(legtechnika)/legelosztasscreen');
           }}
           activeOpacity={0.7}
         >
