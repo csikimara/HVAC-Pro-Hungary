@@ -891,6 +891,20 @@ type DuctedRoom = {
   windowSize: 'Kicsi' | 'Közepes' | 'Nagy';
 };
 
+const ORIENT_MULT: Record<string, number> = { 'Észak': 0.90, 'Kelet': 1.00, 'Dél': 1.15, 'Nyugat': 1.10 };
+const INS_MULT: Record<string, number>    = { 'Gyenge': 1.20, 'Közepes': 1.00, 'Jó': 0.85 };
+const WIN_MULT: Record<string, number>    = { 'Kicsi': 0.95, 'Közepes': 1.00, 'Nagy': 1.10 };
+
+function calcRoomDemand(room: DuctedRoom): number | null {
+  const l = parseFloat(room.length);
+  const w = parseFloat(room.width);
+  if (isNaN(l) || l <= 0 || isNaN(w) || w <= 0) return null;
+  const area = l * w;
+  const h = parseFloat(room.height);
+  const heightFactor = (!isNaN(h) && h > 2.7) ? 1 + Math.round((h - 2.7) / 0.1) * 0.05 : 1.0;
+  return (area * 70 * heightFactor * ORIENT_MULT[room.orientation] * INS_MULT[room.insulation] * WIN_MULT[room.windowSize]) / 1000;
+}
+
 function DuctedSplitValaszto() {
   const [open, setOpen] = useState(false);
   const [rooms, setRooms] = useState<DuctedRoom[]>([]);
@@ -919,6 +933,21 @@ function DuctedSplitValaszto() {
     setRooms(prev => prev.filter(r => r.id !== id));
     console.log('[Hűtéstechnika] Ducted split – helyiség törölve, id:', id);
   }
+
+  const summary = useMemo(() => {
+    if (rooms.length === 0) return null;
+    let total = 0;
+    let anyValid = false;
+    for (const room of rooms) {
+      const d = calcRoomDemand(room);
+      if (d !== null) { total += d; anyValid = true; }
+    }
+    if (!anyValid) return null;
+    return {
+      kW: total.toFixed(2),
+      btu: Math.round(total * 3412.14).toLocaleString('hu-HU'),
+    };
+  }, [rooms]);
 
   return (
     <View style={styles.card}>
@@ -1057,6 +1086,14 @@ function DuctedSplitValaszto() {
                   </TouchableOpacity>
                 ))}
               </View>
+              {(() => {
+                const d = calcRoomDemand(room);
+                return d !== null ? (
+                  <Text style={{ fontSize: 12, color: HVAC_CYAN, marginTop: 8, fontWeight: '600' }}>
+                    Becsült igény: {d.toFixed(2)} kW
+                  </Text>
+                ) : null;
+              })()}
             </View>
           ))}
 
@@ -1064,7 +1101,17 @@ function DuctedSplitValaszto() {
           {rooms.length > 0 && (
             <View style={styles.resultBox}>
               <ResultRow label="Helyiségek száma" value={`${rooms.length} db`} />
-              <ResultRow label="Összes becsült igény" value="—" unit="kW" />
+              <ResultRow
+                label="Összes becsült igény"
+                value={summary?.kW ?? '—'}
+                unit={summary ? 'kW' : undefined}
+                highlight={summary ? HVAC_CYAN : undefined}
+              />
+              <ResultRow
+                label="BTU/h"
+                value={summary?.btu ?? '—'}
+                unit={summary ? 'BTU/h' : undefined}
+              />
               <ResultRow label="Javasolt modell" value="—" />
             </View>
           )}
