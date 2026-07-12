@@ -563,6 +563,32 @@ function SummaryCard({
               {checkMessage}
             </Text>
           </View>
+          {checkState !== 'nodata' && (
+            <View style={{ marginTop: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: HVAC_BORDER }}>
+              <Text style={{ fontSize: 13, color: checkColor, lineHeight: 19 }}>
+                {checkState === 'ok' && 'A rendszer megfelelően méretezett. A kritikus ág nyomásesése belefér a rendelkezésre álló ESP-be.'}
+                {checkState === 'warning' && (
+                  (() => {
+                    const hints: string[] = [];
+                    if (criticalDrop !== null && usableEsp !== null && criticalDrop > usableEsp * 0.8) hints.push('a kritikus ág nyomásesése az ESP nagy részét felhasználja');
+                    if (!isNaN(filter) && filter > 0 && !isNaN(damper) && damper > 0 && (filter + damper) > (usableEsp ?? 0) * 0.3) hints.push('a tartozékveszteségek jelentősen csökkentik a csatornára maradó nyomást');
+                    if (hints.length === 0) hints.push('a tartalék szűk, érdemes ellenőrizni az ágak méretezését');
+                    return `⚠ Figyelem: ${hints.join('; ')}.`;
+                  })()
+                )}
+                {checkState === 'fail' && (
+                  (() => {
+                    const hints: string[] = [];
+                    if (criticalDrop !== null && usableEsp !== null && criticalDrop > usableEsp) hints.push('a kritikus ág nyomásesése meghaladja a felhasználható ESP-t – növeld a csatorna átmérőjét vagy rövidítsd az ágat');
+                    if (!isNaN(filter) && !isNaN(damper) && (filter + damper) > esp * 0.4) hints.push('a tartozékveszteségek az ESP több mint 40%-át elvesznek – ellenőrizd a szűrő és szelep adatait');
+                    if (totalAirflow > 0 && hasEsp && totalAirflow > 1500 && esp < 50) hints.push('nagy légszállítás mellett alacsony ESP – ellenőrizd az egység adatlapját');
+                    if (hints.length === 0) hints.push('csökkentsd az ágak nyomásesését vagy válassz nagyobb ESP-jű egységet');
+                    return `✗ Ok: ${hints.join('; ')}.`;
+                  })()
+                )}
+              </Text>
+            </View>
+          )}
         </View>
         <Text style={styles.noteText}>
           A kritikus ág a legnagyobb nyomásesésű ágat jelenti. Ez nem haladhatja meg a rendelkezésre álló külső statikus nyomást.
