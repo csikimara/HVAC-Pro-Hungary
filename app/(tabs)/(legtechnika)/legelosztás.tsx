@@ -33,11 +33,39 @@ type Branch = {
 
 // ─── Unit Header Card ─────────────────────────────────────────────────────────
 
+const FUJITSU_MODELS = [
+  { model: 'ARXG09KLLAP', series: 'KLLAP', pressureClass: 'Közepes nyomású', cooling: 2.5, heating: 3.2, airflow: 510 },
+  { model: 'ARXG12KLLAP', series: 'KLLAP', pressureClass: 'Közepes nyomású', cooling: 3.5, heating: 4.0, airflow: 630 },
+  { model: 'ARXG14KLLAP', series: 'KLLAP', pressureClass: 'Közepes nyomású', cooling: 4.0, heating: 5.0, airflow: 720 },
+  { model: 'ARXG18KLLAP', series: 'KLLAP', pressureClass: 'Közepes nyomású', cooling: 5.0, heating: 6.0, airflow: 900 },
+  { model: 'ARXG24KLLAP', series: 'KLLAP', pressureClass: 'Közepes nyomású', cooling: 7.1, heating: 8.0, airflow: 1260 },
+  { model: 'ARXG30KLLAP', series: 'KLLAP', pressureClass: 'Közepes nyomású', cooling: 8.0, heating: 9.0, airflow: 1500 },
+  { model: 'ARXG36KLLAP', series: 'KLLAP', pressureClass: 'Közepes nyomású', cooling: 10.0, heating: 11.2, airflow: 1800 },
+  { model: 'ARXG45KLLAP', series: 'KLLAP', pressureClass: 'Közepes nyomású', cooling: 12.5, heating: 14.0, airflow: 2100 },
+  { model: 'ARXG54KLLAP', series: 'KLLAP', pressureClass: 'Közepes nyomású', cooling: 14.0, heating: 16.0, airflow: 2400 },
+  { model: 'ARXG07LMLE',  series: 'LMLE',  pressureClass: 'Nagy nyomású',    cooling: 2.0, heating: 2.5, airflow: 390 },
+  { model: 'ARXG09LMLE',  series: 'LMLE',  pressureClass: 'Nagy nyomású',    cooling: 2.5, heating: 3.2, airflow: 510 },
+  { model: 'ARXG12LMLE',  series: 'LMLE',  pressureClass: 'Nagy nyomású',    cooling: 3.5, heating: 4.0, airflow: 630 },
+  { model: 'ARXG14LMLE',  series: 'LMLE',  pressureClass: 'Nagy nyomású',    cooling: 4.0, heating: 5.0, airflow: 720 },
+  { model: 'ARXG18LMLE',  series: 'LMLE',  pressureClass: 'Nagy nyomású',    cooling: 5.0, heating: 6.0, airflow: 900 },
+  { model: 'ARXG24LMLE',  series: 'LMLE',  pressureClass: 'Nagy nyomású',    cooling: 7.1, heating: 8.0, airflow: 1260 },
+  { model: 'ARXG30LMLE',  series: 'LMLE',  pressureClass: 'Nagy nyomású',    cooling: 8.0, heating: 9.0, airflow: 1500 },
+  { model: 'ARXG36LMLE',  series: 'LMLE',  pressureClass: 'Nagy nyomású',    cooling: 10.0, heating: 11.2, airflow: 1800 },
+  { model: 'ARXG45LMLE',  series: 'LMLE',  pressureClass: 'Nagy nyomású',    cooling: 12.5, heating: 14.0, airflow: 2100 },
+] as const;
+
+type FujitsuModel = typeof FUJITSU_MODELS[number];
+
 function UnitCard() {
   const [open, setOpen] = useState(true);
-  const [unitName, setUnitName] = useState('');
-  const [totalAirflow, setTotalAirflow] = useState('');
+  const [selectedModel, setSelectedModel] = useState<FujitsuModel | null>(null);
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [availableEsp, setAvailableEsp] = useState('');
+  const [filterLoss, setFilterLoss] = useState('');
+  const [damperLoss, setDamperLoss] = useState('');
+
+  const selectedModelText = selectedModel ? selectedModel.model : 'Válassz modellt…';
+  const selectedModelColor = selectedModel ? HVAC_TEXT : HVAC_TEXT_SECONDARY;
 
   return (
     <View style={styles.card}>
@@ -58,34 +86,117 @@ function UnitCard() {
 
       {open && (
         <View style={styles.cardBody}>
-          <Text style={styles.label}>Egység neve / azonosítója</Text>
-          <TextInput
-            style={styles.input}
-            value={unitName}
-            onChangeText={setUnitName}
-            placeholder="pl. FCU-01"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
-          <Text style={styles.label}>Névleges légszállítás (m³/h)</Text>
-          <TextInput
-            style={styles.input}
-            value={totalAirflow}
-            onChangeText={setTotalAirflow}
-            keyboardType="numeric"
-            placeholder="pl. 800"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
+          <Text style={styles.label}>Fujitsu modell</Text>
+          <TouchableOpacity
+            style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+            onPress={() => {
+              console.log('[Légelosztás] Modell választó toggled:', !modelPickerOpen);
+              setModelPickerOpen(p => !p);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={{ color: selectedModelColor, fontSize: 16 }}>
+              {selectedModelText}
+            </Text>
+            {modelPickerOpen ? <ChevronUp size={16} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={16} color={HVAC_TEXT_SECONDARY} />}
+          </TouchableOpacity>
+
+          {modelPickerOpen && (
+            <View style={{ marginBottom: 12, borderRadius: 12, borderWidth: 1, borderColor: HVAC_BORDER, overflow: 'hidden' }}>
+              {FUJITSU_MODELS.map((m, idx) => {
+                const active = selectedModel?.model === m.model;
+                const rowBg = active ? HVAC_BLUE + '22' : idx % 2 === 0 ? HVAC_SURFACE : HVAC_CARD;
+                const hasBorder = idx < FUJITSU_MODELS.length - 1;
+                const modelNameColor = active ? HVAC_BLUE : HVAC_TEXT;
+                const modelDetailText = `${m.series} · ${m.pressureClass} · ${m.cooling} kW hűtés · ${m.heating} kW fűtés · ${m.airflow} m³/h`;
+                return (
+                  <TouchableOpacity
+                    key={m.model}
+                    style={{
+                      paddingVertical: 12,
+                      paddingHorizontal: 14,
+                      backgroundColor: rowBg,
+                      borderBottomWidth: hasBorder ? 1 : 0,
+                      borderBottomColor: HVAC_BORDER,
+                    }}
+                    onPress={() => {
+                      console.log('[Légelosztás] Modell kiválasztva:', m.model);
+                      setSelectedModel(m);
+                      setModelPickerOpen(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: modelNameColor }}>{m.model}</Text>
+                    <Text style={{ fontSize: 12, color: HVAC_TEXT_SECONDARY, marginTop: 2 }}>
+                      {modelDetailText}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {selectedModel && (
+            <View style={[styles.resultBox, { marginBottom: 12 }]}>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Sorozat</Text>
+                <Text style={styles.resultValue}>{selectedModel.series}</Text>
+              </View>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Nyomásosztály</Text>
+                <Text style={styles.resultValue}>{selectedModel.pressureClass}</Text>
+              </View>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Névleges hűtőteljesítmény</Text>
+                <Text style={styles.resultValue}>{selectedModel.cooling} kW</Text>
+              </View>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Névleges fűtőteljesítmény</Text>
+                <Text style={styles.resultValue}>{selectedModel.heating} kW</Text>
+              </View>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Névleges légszállítás</Text>
+                <Text style={styles.resultValue}>{selectedModel.airflow} m³/h</Text>
+              </View>
+            </View>
+          )}
+
           <Text style={styles.label}>Rendelkezésre álló külső statikus nyomás (Pa)</Text>
           <TextInput
             style={styles.input}
             value={availableEsp}
-            onChangeText={setAvailableEsp}
+            onChangeText={v => { console.log('[Légelosztás] ESP input:', v); setAvailableEsp(v); }}
             keyboardType="numeric"
             placeholder="pl. 50"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
           <Text style={styles.noteText}>
             A külső statikus nyomás a légkezelő műszaki adatlapjáról olvasható le a névleges légszállításhoz tartozó értékként.
+          </Text>
+
+          <Text style={[styles.label, { marginTop: 12 }]}>Tartozékveszteségek</Text>
+
+          <Text style={styles.label}>Szívóoldali szűrődoboz G4 szűrővel (Pa)</Text>
+          <TextInput
+            style={styles.input}
+            value={filterLoss}
+            onChangeText={v => { console.log('[Légelosztás] Szűrődoboz veszteség input:', v); setFilterLoss(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 20"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          <Text style={styles.label}>Nyomóoldali pillangószelep (Pa)</Text>
+          <TextInput
+            style={styles.input}
+            value={damperLoss}
+            onChangeText={v => { console.log('[Légelosztás] Pillangószelep veszteség input:', v); setDamperLoss(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 10"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+          <Text style={styles.noteText}>
+            A tartozékveszteségek levonásra kerülnek a rendelkezésre álló ESP-ből az ágak tervezésekor.
           </Text>
         </View>
       )}
