@@ -60,9 +60,28 @@ function UnitCard() {
   const [open, setOpen] = useState(true);
   const [selectedModel, setSelectedModel] = useState<FujitsuModel | null>(null);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  // Editable unit fields — pre-filled from Fujitsu selection, always overridable
+  const [unitName, setUnitName] = useState('');
+  const [unitSeries, setUnitSeries] = useState('');
+  const [pressureClass, setPressureClass] = useState('');
+  const [coolingKw, setCoolingKw] = useState('');
+  const [heatingKw, setHeatingKw] = useState('');
+  const [nominalAirflow, setNominalAirflow] = useState('');
   const [availableEsp, setAvailableEsp] = useState('');
   const [filterLoss, setFilterLoss] = useState('');
   const [damperLoss, setDamperLoss] = useState('');
+
+  function selectModel(m: FujitsuModel) {
+    setSelectedModel(m);
+    setUnitName(m.model);
+    setUnitSeries(m.series);
+    setPressureClass(m.pressureClass);
+    setCoolingKw(String(m.cooling));
+    setHeatingKw(String(m.heating));
+    setNominalAirflow(String(m.airflow));
+    setModelPickerOpen(false);
+    console.log('[Légelosztás] Modell kiválasztva és mezők kitöltve:', m.model);
+  }
 
   const selectedModelText = selectedModel ? selectedModel.model : 'Válassz modellt…';
   const selectedModelColor = selectedModel ? HVAC_TEXT : HVAC_TEXT_SECONDARY;
@@ -86,7 +105,8 @@ function UnitCard() {
 
       {open && (
         <View style={styles.cardBody}>
-          <Text style={styles.label}>Fujitsu modell</Text>
+          {/* 1. Fujitsu model selector */}
+          <Text style={styles.label}>Fujitsu modell (opcionális)</Text>
           <TouchableOpacity
             style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
             onPress={() => {
@@ -101,6 +121,7 @@ function UnitCard() {
             {modelPickerOpen ? <ChevronUp size={16} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={16} color={HVAC_TEXT_SECONDARY} />}
           </TouchableOpacity>
 
+          {/* 2. Model picker list */}
           {modelPickerOpen && (
             <View style={{ marginBottom: 12, borderRadius: 12, borderWidth: 1, borderColor: HVAC_BORDER, overflow: 'hidden' }}>
               {FUJITSU_MODELS.map((m, idx) => {
@@ -119,11 +140,7 @@ function UnitCard() {
                       borderBottomWidth: hasBorder ? 1 : 0,
                       borderBottomColor: HVAC_BORDER,
                     }}
-                    onPress={() => {
-                      console.log('[Légelosztás] Modell kiválasztva:', m.model);
-                      setSelectedModel(m);
-                      setModelPickerOpen(false);
-                    }}
+                    onPress={() => selectModel(m)}
                     activeOpacity={0.7}
                   >
                     <Text style={{ fontSize: 14, fontWeight: '600', color: modelNameColor }}>{m.model}</Text>
@@ -136,31 +153,75 @@ function UnitCard() {
             </View>
           )}
 
-          {selectedModel && (
-            <View style={[styles.resultBox, { marginBottom: 12 }]}>
-              <View style={styles.resultRow}>
-                <Text style={styles.resultLabel}>Sorozat</Text>
-                <Text style={styles.resultValue}>{selectedModel.series}</Text>
-              </View>
-              <View style={styles.resultRow}>
-                <Text style={styles.resultLabel}>Nyomásosztály</Text>
-                <Text style={styles.resultValue}>{selectedModel.pressureClass}</Text>
-              </View>
-              <View style={styles.resultRow}>
-                <Text style={styles.resultLabel}>Névleges hűtőteljesítmény</Text>
-                <Text style={styles.resultValue}>{selectedModel.cooling} kW</Text>
-              </View>
-              <View style={styles.resultRow}>
-                <Text style={styles.resultLabel}>Névleges fűtőteljesítmény</Text>
-                <Text style={styles.resultValue}>{selectedModel.heating} kW</Text>
-              </View>
-              <View style={styles.resultRow}>
-                <Text style={styles.resultLabel}>Névleges légszállítás</Text>
-                <Text style={styles.resultValue}>{selectedModel.airflow} m³/h</Text>
-              </View>
-            </View>
-          )}
+          {/* 3. Divider note */}
+          <Text style={styles.noteText}>
+            Fujitsu modell kiválasztása előtölti az alábbi mezőket. Minden érték szabadon módosítható más gyártókhoz is.
+          </Text>
 
+          {/* 4. Egység neve / azonosítója */}
+          <Text style={[styles.label, { marginTop: 12 }]}>Egység neve / azonosítója</Text>
+          <TextInput
+            style={styles.input}
+            value={unitName}
+            onChangeText={v => { console.log('[Légelosztás] Egység neve input:', v); setUnitName(v); }}
+            placeholder="pl. FCU-01 vagy ARXG18KLLAP"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          {/* 5. Sorozat */}
+          <Text style={styles.label}>Sorozat</Text>
+          <TextInput
+            style={styles.input}
+            value={unitSeries}
+            onChangeText={v => { console.log('[Légelosztás] Sorozat input:', v); setUnitSeries(v); }}
+            placeholder="pl. KLLAP"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          {/* 6. Nyomásosztály */}
+          <Text style={styles.label}>Nyomásosztály</Text>
+          <TextInput
+            style={styles.input}
+            value={pressureClass}
+            onChangeText={v => { console.log('[Légelosztás] Nyomásosztály input:', v); setPressureClass(v); }}
+            placeholder="pl. Közepes nyomású"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          {/* 7. Névleges hűtőteljesítmény */}
+          <Text style={styles.label}>Névleges hűtőteljesítmény (kW)</Text>
+          <TextInput
+            style={styles.input}
+            value={coolingKw}
+            onChangeText={v => { console.log('[Légelosztás] Hűtőteljesítmény input:', v); setCoolingKw(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 5.0"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          {/* 8. Névleges fűtőteljesítmény */}
+          <Text style={styles.label}>Névleges fűtőteljesítmény (kW)</Text>
+          <TextInput
+            style={styles.input}
+            value={heatingKw}
+            onChangeText={v => { console.log('[Légelosztás] Fűtőteljesítmény input:', v); setHeatingKw(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 6.0"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          {/* 9. Névleges légszállítás */}
+          <Text style={styles.label}>Névleges légszállítás (m³/h)</Text>
+          <TextInput
+            style={styles.input}
+            value={nominalAirflow}
+            onChangeText={v => { console.log('[Légelosztás] Névleges légszállítás input:', v); setNominalAirflow(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 900"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          {/* 10. Rendelkezésre álló ESP */}
           <Text style={styles.label}>Rendelkezésre álló külső statikus nyomás (Pa)</Text>
           <TextInput
             style={styles.input}
@@ -174,6 +235,7 @@ function UnitCard() {
             A külső statikus nyomás a légkezelő műszaki adatlapjáról olvasható le a névleges légszállításhoz tartozó értékként.
           </Text>
 
+          {/* 11. Tartozékveszteségek */}
           <Text style={[styles.label, { marginTop: 12 }]}>Tartozékveszteségek</Text>
 
           <Text style={styles.label}>Szívóoldali szűrődoboz G4 szűrővel (Pa)</Text>
