@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ChevronDown, ChevronUp, ChevronLeft, Cpu, AlertTriangle, CheckCircle, XCircle } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ChevronLeft, Cpu, AlertTriangle, CheckCircle, XCircle, Gauge, Thermometer, Search } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
@@ -440,6 +440,130 @@ function CompressorDiagnostics() {
   );
 }
 
+// ─── Kompresszióviszony kalkulátor ────────────────────────────────────────────
+
+function KompresszioviszonyKalkulator() {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Diagnosztika] Kompresszióviszony kalkulátor toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+        <View style={styles.cardHeaderLeft}>
+          <Gauge size={20} color={HVAC_BLUE} />
+          <Text style={styles.cardTitle}>Kompresszióviszony kalkulátor</Text>
+        </View>
+        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.cardBody}>
+          <Text style={styles.label}>Szívónyomás (bar abs)</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 5.5" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Nyomónyomás (bar abs)</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 22" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <View style={styles.resultBox}>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Kompresszióviszony</Text>
+              <Text style={styles.resultValue}>—</Text>
+            </View>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Értékelés</Text>
+              <Text style={styles.resultValue}>—</Text>
+            </View>
+          </View>
+          <Text style={styles.noteText}>Számítás hamarosan elérhető.</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Delta T kalkulátor ───────────────────────────────────────────────────────
+
+function DeltaTKalkulator() {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<'hutés' | 'fűtés'>('hutés');
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Diagnosztika] Delta T kalkulátor toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+        <View style={styles.cardHeaderLeft}>
+          <Thermometer size={20} color={HVAC_YELLOW} />
+          <Text style={styles.cardTitle}>Delta T kalkulátor</Text>
+        </View>
+        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.cardBody}>
+          <View style={styles.segmentRow}>
+            {(['hutés', 'fűtés'] as const).map(m => (
+              <TouchableOpacity key={m} style={[styles.segmentBtn, mode === m && styles.segmentBtnActive]} onPress={() => { console.log('[Diagnosztika] Delta T mód:', m); setMode(m); }} activeOpacity={0.7}>
+                <Text style={[styles.segmentText, mode === m && styles.segmentBtnActiveText]}>{m === 'hutés' ? 'Hűtés' : 'Fűtés'}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.label}>Befúvó hőmérséklet (°C)</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 12" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Visszatérő hőmérséklet (°C)</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 24" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <View style={styles.resultBox}>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>ΔT</Text>
+              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>K</Text></Text>
+            </View>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Értékelés</Text>
+              <Text style={styles.resultValue}>—</Text>
+            </View>
+          </View>
+          <Text style={styles.noteText}>Számítás hamarosan elérhető.</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Gyors hibagyanú ──────────────────────────────────────────────────────────
+
+function GyorsHibagyanú() {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Diagnosztika] Gyors hibagyanú toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+        <View style={styles.cardHeaderLeft}>
+          <Search size={20} color={HVAC_RED} />
+          <Text style={styles.cardTitle}>Gyors hibagyanú</Text>
+        </View>
+        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.cardBody}>
+          <Text style={styles.label}>Tünet leírása</Text>
+          <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]} value="" onChangeText={() => {}} multiline placeholder="pl. nem hűt, zajos, leáll..." placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Kompresszor állapota</Text>
+          <View style={styles.segmentRow}>
+            {['Fut', 'Leáll', 'Nem indul'].map(s => (
+              <TouchableOpacity key={s} style={styles.segmentBtn} activeOpacity={0.7}>
+                <Text style={styles.segmentText}>{s}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.label}>Hibajelzés / hibakód</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} placeholder="pl. E1, F3, vagy nincs" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <View style={styles.resultBox}>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Valószínű hibagyanú</Text>
+              <Text style={styles.resultValue}>—</Text>
+            </View>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Javasolt lépés</Text>
+              <Text style={styles.resultValue}>—</Text>
+            </View>
+          </View>
+          <Text style={styles.noteText}>Diagnosztikai logika hamarosan elérhető.</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function DiagnosztikaSreen() {
@@ -478,6 +602,9 @@ export default function DiagnosztikaSreen() {
         </TouchableOpacity>
         <Text style={styles.screenTitle}>Diagnosztika</Text>
         <CompressorDiagnostics />
+        <KompresszioviszonyKalkulator />
+        <DeltaTKalkulator />
+        <GyorsHibagyanú />
       </ScrollView>
     </View>
   );
@@ -650,4 +777,14 @@ const styles = StyleSheet.create({
     color: HVAC_TEXT_SECONDARY,
     lineHeight: 20,
   },
+  segmentRow: { flexDirection: 'row', backgroundColor: HVAC_SURFACE, borderRadius: 12, padding: 4, marginBottom: 14 },
+  segmentBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
+  segmentBtnActive: { backgroundColor: HVAC_BLUE },
+  segmentText: { fontSize: 14, fontWeight: '600', color: HVAC_TEXT_SECONDARY },
+  segmentBtnActiveText: { color: '#FFFFFF' },
+  noteText: { fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8, marginBottom: 4 },
+  resultRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  resultLabel: { fontSize: 14, color: HVAC_TEXT_SECONDARY, flex: 1 },
+  resultValue: { fontSize: 18, fontWeight: '700', color: HVAC_TEXT },
+  resultUnit: { fontSize: 13, color: HVAC_TEXT_SECONDARY },
 });
