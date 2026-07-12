@@ -804,7 +804,7 @@ function GyorsHibagyanú() {
             ))}
           </View>
 
-          <Text style={styles.label}>Hibajelzés / hibakód – opcionális</Text>
+          <Text style={styles.label}>Hibajelzés / hibakód – csak tájékoztatásul, nem befolyásolja az eredményt</Text>
           <TextInput
             style={styles.input}
             value={errorCode}
