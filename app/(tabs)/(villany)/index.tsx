@@ -115,7 +115,7 @@ function OhmLawCalculator() {
 
       {open && (
         <View style={styles.cardBody}>
-          <Text style={styles.hintText}>Töltsd ki bármelyik 2 mezőt, a többi kiszámításra kerül.</Text>
+          <Text style={styles.hintText}>Bármely 2 mező kitöltése esetén a többi kiszámításra kerül.</Text>
 
           <Text style={styles.label}>Feszültség U (V)</Text>
           <TextInput
@@ -248,13 +248,13 @@ function SinglePhasePower() {
 
           {result && (
             <View style={styles.resultBox}>
-              <ResultRow label="Látszólagos teljesítmény S" value={result.S_VA} unit="VA" />
+              <ResultRow label="Látszólagos S" value={result.S_VA} unit="VA" />
               <ResultRow label="" value={result.S_kVA} unit="kVA" />
               <View style={styles.divider} />
-              <ResultRow label="Hatásos teljesítmény P" value={result.P_W} unit="W" highlight={HVAC_BLUE} />
+              <ResultRow label="Hatásos P" value={result.P_W} unit="W" highlight={HVAC_BLUE} />
               <ResultRow label="" value={result.P_kW} unit="kW" highlight={HVAC_BLUE} />
               <View style={styles.divider} />
-              <ResultRow label="Meddő teljesítmény Q" value={result.Q_VAr} unit="VAr" />
+              <ResultRow label="Meddő Q" value={result.Q_VAr} unit="VAr" />
               <ResultRow label="" value={result.Q_kVAr} unit="kVAr" />
               <View style={styles.divider} />
               <ResultRow label="cos φ" value={result.cosPhi} unit="" />
@@ -343,15 +343,15 @@ function ThreePhasePower() {
 
           {result && (
             <View style={styles.resultBox}>
-              <ResultRow label="Fázisfeszültség U_f" value={result.Uf} unit="V" highlight={HVAC_PURPLE} />
+              <ResultRow label="Fázisfeszültség" value={result.Uf} unit="V" highlight={HVAC_PURPLE} />
               <View style={styles.divider} />
-              <ResultRow label="Látszólagos teljesítmény S" value={result.S_VA} unit="VA" />
+              <ResultRow label="Látszólagos S" value={result.S_VA} unit="VA" />
               <ResultRow label="" value={result.S_kVA} unit="kVA" />
               <View style={styles.divider} />
-              <ResultRow label="Hatásos teljesítmény P" value={result.P_W} unit="W" highlight={HVAC_BLUE} />
+              <ResultRow label="Hatásos P" value={result.P_W} unit="W" highlight={HVAC_BLUE} />
               <ResultRow label="" value={result.P_kW} unit="kW" highlight={HVAC_BLUE} />
               <View style={styles.divider} />
-              <ResultRow label="Meddő teljesítmény Q" value={result.Q_VAr} unit="VAr" />
+              <ResultRow label="Meddő Q" value={result.Q_VAr} unit="VAr" />
               <ResultRow label="" value={result.Q_kVAr} unit="kVAr" />
             </View>
           )}
@@ -577,19 +577,19 @@ function TeljesitmenyKalkulator() {
 
           <View style={styles.resultBox}>
             <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Látszólagos teljesítmény S</Text>
+              <Text style={styles.resultLabel}>Látszólagos S</Text>
               <Text style={[styles.resultValue, { color: result?.S != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>
                 {result?.S ?? '—'} <Text style={styles.resultUnit}>VA</Text>
               </Text>
             </View>
             <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Hatásos teljesítmény P</Text>
+              <Text style={styles.resultLabel}>Hatásos P</Text>
               <Text style={[styles.resultValue, { color: result?.P != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>
                 {result?.P ?? '—'} <Text style={styles.resultUnit}>W</Text>
               </Text>
             </View>
             <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Meddő teljesítmény Q</Text>
+              <Text style={styles.resultLabel}>Meddő Q</Text>
               <Text style={[styles.resultValue, { color: result?.Q != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>
                 {result?.Q ?? '—'} <Text style={styles.resultUnit}>VAr</Text>
               </Text>

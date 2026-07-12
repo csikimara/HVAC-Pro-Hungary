@@ -135,7 +135,7 @@ function TeljesitmenyAtvalto() {
 
           <View style={styles.resultBox}>
             <ResultRow
-              label="Eredmény"
+              label="Átváltott érték"
               value={result ?? '—'}
               unit={result ? toUnit : undefined}
               highlight={result ? HVAC_CYAN : undefined}
@@ -220,7 +220,7 @@ function CopEer() {
 
           <View style={styles.resultBox}>
             <ResultRow label={mode} value={result?.val ?? '—'} highlight={result?.color} />
-            <ResultRow label="Minősítés" value={result?.rating ?? '—'} highlight={result?.color} />
+            <ResultRow label="Értékelés" value={result?.rating ?? '—'} highlight={result?.color} />
           </View>
         </View>
       )}
@@ -346,13 +346,13 @@ function Nyomaspróba() {
           />
 
           <Text style={styles.noteText}>
-            Megjegyzés: a környezeti hőmérséklet változása befolyásolhatja a nyomásmérési eredményt. Stabil hőmérsékleten végzett mérés pontosabb eredményt ad.
+            A hőmérséklet-változás befolyásolhatja az eredményt – stabil körülmények között mérj.
           </Text>
 
           <View style={styles.resultBox}>
             <ResultRow label="Nyomásesés" value={result?.drop ?? '—'} unit={result ? unit : undefined} />
-            <ResultRow label="Nyomásesés / perc" value={result?.dropPerMin ?? '—'} unit={result?.dropPerMin ? `${unit}/perc` : undefined} />
-            <ResultRow label="Eredmény" value={result?.status ?? '—'} highlight={result?.statusColor} />
+            <ResultRow label="Nyomásesés/perc" value={result?.dropPerMin ?? '—'} unit={result?.dropPerMin ? `${unit}/perc` : undefined} />
+            <ResultRow label="Értékelés" value={result?.status ?? '—'} highlight={result?.statusColor} />
           </View>
         </View>
       )}
@@ -496,7 +496,7 @@ function PtTabla() {
                   highlight={result?.temp ? HVAC_CYAN : undefined}
                 />
                 <ResultRow
-                  label="Forrás"
+                  label="Adat forrása"
                   value={result === null ? '—' : result.exact ? 'Táblapont egyezés' : 'Interpolált érték'}
                   highlight={result === null ? undefined : result.exact ? HVAC_GREEN : HVAC_BLUE}
                 />
@@ -505,7 +505,7 @@ function PtTabla() {
           </View>
 
           <Text style={[styles.noteText, { marginTop: 10 }]}>
-            Az adatok telítési görbén alapulnak (abszolút nyomás). psig esetén 1,01325 bar atmoszferikus nyomással számol.
+            Telítési görbe alapján (abszolút nyomás). psig: 1,01325 bar atmoszferikus nyomással számolva.
           </Text>
         </View>
       )}
@@ -658,7 +658,7 @@ function TulhevitesUtohutes() {
             ) : (
               <>
                 <ResultRow
-                  label="Telítési hőmérséklet (PT)"
+                  label="Telítési hőmérséklet"
                   value={result?.tSat ?? '—'}
                   unit={result?.tSat ? '°C' : undefined}
                 />
@@ -678,7 +678,7 @@ function TulhevitesUtohutes() {
           </View>
 
           <Text style={[styles.noteText, { marginTop: 10 }]}>
-            A telítési hőmérséklet a PT táblából kerül meghatározásra. SH = szívócső hőmérséklet − telítési hőmérséklet. SC = telítési hőmérséklet − folyékonyvezeték hőmérséklete.
+            SH = szívócső hőm. − telítési hőm. SC = telítési hőm. − folyékonyvezeték hőm.
           </Text>
         </View>
       )}
@@ -786,7 +786,7 @@ function HutokörGyorsEllenorzes() {
           </View>
 
           <Text style={[styles.noteText, { marginTop: 10 }]}>
-            A diagnózis az SH és SC értékek kombinációján alapul. Pontos értékeléshez mérje meg mindkét értéket a PT táblával.
+            Az SH és SC kombinációján alapuló becslés. Pontos értékeléshez PT táblával mérd meg mindkét értéket.
           </Text>
         </View>
       )}
@@ -887,8 +887,8 @@ function SplitGyorsmerezezo() {
           </View>
 
           <View style={styles.resultBox}>
-            <ResultRow label="Becsült hűtési igény" value={result?.kW ?? '—'} unit={result ? 'kW' : undefined} highlight={result ? HVAC_CYAN : undefined} />
-            <ResultRow label="BTU/h" value={result?.btu ?? '—'} unit={result ? 'BTU/h' : undefined} />
+            <ResultRow label="Becsült igény" value={result?.kW ?? '—'} unit={result ? 'kW' : undefined} highlight={result ? HVAC_CYAN : undefined} />
+            <ResultRow label="Egyenérték BTU/h" value={result?.btu ?? '—'} unit={result ? 'BTU/h' : undefined} />
             <ResultRow
               label="Javasolt méretosztály"
               value={result ? recommendedClass(parseFloat(result.kW)) : '—'}
@@ -897,7 +897,7 @@ function SplitGyorsmerezezo() {
           </View>
 
           <Text style={styles.noteText}>
-            Tájékoztató becslés: 70 W/m² alapon, tájolás és szigetelés korrekciókkal. Pontos méretezéshez hőveszteség-számítás szükséges.
+            70 W/m² alapú becslés, tájolás és szigetelés korrekcióval. Pontos méretezéshez hőveszteség-számítás szükséges.
           </Text>
         </View>
       )}
@@ -1128,13 +1128,13 @@ function DuctedSplitValaszto() {
             <View style={styles.resultBox}>
               <ResultRow label="Helyiségek száma" value={`${rooms.length} db`} />
               <ResultRow
-                label="Összes becsült igény"
+                label="Összesített igény"
                 value={summary?.kW ?? '—'}
                 unit={summary ? 'kW' : undefined}
                 highlight={summary ? HVAC_CYAN : undefined}
               />
               <ResultRow
-                label="BTU/h"
+                label="Egyenérték BTU/h"
                 value={summary?.btu ?? '—'}
                 unit={summary ? 'BTU/h' : undefined}
               />
@@ -1148,8 +1148,8 @@ function DuctedSplitValaszto() {
 
           <Text style={styles.noteText}>
             {rooms.length === 0
-              ? 'Adj hozzá helyiségeket a méretezéshez. Számítási logika hamarosan elérhető.'
-              : 'Számítási logika hamarosan elérhető.'}
+              ? 'Adj hozzá helyiségeket a méretezéshez.'
+              : 'Az összesített igény alapján javasolt méretosztály jelenik meg.'}
           </Text>
         </View>
       )}
@@ -1261,7 +1261,7 @@ function FanCoilMerezezo() {
           {/* Result */}
           <View style={styles.resultBox}>
             <ResultRow
-              label="Névleges igény (korrigált)"
+              label="Korrigált névleges igény"
               value={result?.adjusted ?? '—'}
               unit={result ? 'kW' : undefined}
             />
@@ -1273,7 +1273,7 @@ function FanCoilMerezezo() {
           </View>
 
           <Text style={styles.noteText}>
-            Tájékoztató kategorizálás névleges vízoldali feltételek alapján. Pontos kiválasztáshoz gyártói teljesítménytáblázat szükséges.
+            Névleges vízoldali feltételek alapján. Pontos kiválasztáshoz gyártói teljesítménytáblázat szükséges.
           </Text>
         </View>
       )}

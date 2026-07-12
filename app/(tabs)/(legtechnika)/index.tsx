@@ -542,7 +542,7 @@ function PressureDropTool() {
           )}
 
           <Text style={styles.noteText}>
-            Az idom K-értékek tájékoztató jellegűek. A tényleges veszteség a geometriától és a gyártótól függ.
+            Az idom K-értékek tájékoztató jellegűek – a tényleges veszteség a geometriától és a gyártótól függ.
           </Text>
 
           <View style={styles.resultBox}>

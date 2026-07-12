@@ -390,14 +390,14 @@ function CompressorDiagnostics() {
               {/* Parameter rows */}
               <View style={styles.resultBox}>
                 <DiagRow
-                  label="Kompresszió arány CR"
+                  label="Kompresszióviszony CR"
                   value={crVal}
                   unit=""
                   status={result.crStatus}
                 />
                 <View style={styles.divider} />
                 <DiagRow
-                  label="Szívócső túlhevítés SH"
+                  label="Túlhevítés SH"
                   value={shVal}
                   unit="°C"
                   status={result.shStatus}
@@ -411,7 +411,7 @@ function CompressorDiagnostics() {
                 />
                 <View style={styles.divider} />
                 <DiagRow
-                  label="Nyomóhőmérséklet T_d"
+                  label="Nyomóhőmérséklet"
                   value={tdVal}
                   unit="°C"
                   status={result.tdStatus}
@@ -543,11 +543,11 @@ function KompresszioviszonyKalkulator() {
 
           <View style={styles.resultBox}>
             <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Szívónyomás (abs)</Text>
+              <Text style={styles.resultLabel}>Szívónyomás abs.</Text>
               <Text style={[styles.resultValue, { color: result?.sAbs != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>{result?.sAbs ?? '—'} <Text style={styles.resultUnit}>bar</Text></Text>
             </View>
             <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Nyomónyomás (abs)</Text>
+              <Text style={styles.resultLabel}>Nyomónyomás abs.</Text>
               <Text style={[styles.resultValue, { color: result?.dAbs != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>{result?.dAbs ?? '—'} <Text style={styles.resultUnit}>bar</Text></Text>
             </View>
             <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
@@ -924,7 +924,7 @@ function KompresszorElektromosEllenorzes() {
       {open && (
         <View style={styles.cardBody}>
           <Text style={styles.noteText}>
-            Add meg a kompresszor kapcsai között mért ellenállásértékeket (Ω). Áramtalanított állapotban mérj!
+            Add meg a kapcsok közötti ellenállásértékeket (Ω). Mérj áramtalanított állapotban.
           </Text>
 
           <Text style={styles.label}>C–R tekercs (Ω)</Text>
