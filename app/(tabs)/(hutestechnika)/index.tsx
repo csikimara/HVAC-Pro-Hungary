@@ -353,7 +353,7 @@ function Nyomaspróba() {
 
           <View style={styles.resultBox}>
             <ResultRow label="Elméleti végnyomás (hőm.-korr.)" value={result?.p2Theo ?? '—'} unit={result ? unit : undefined} />
-            <ResultRow label="Eltérés (mért – elméleti)" value={result?.deltaP ?? '—'} unit={result ? unit : undefined} highlight={result ? (Math.abs(result.deltaPRaw) < (unit === 'bar' ? 0.05 : unit === 'kPa' ? 5 : 5000) ? HVAC_GREEN : HVAC_YELLOW) : undefined} />
+            <ResultRow label="Eltérés (elméleti – mért)" value={result?.deltaP ?? '—'} unit={result ? unit : undefined} highlight={result ? (Math.abs(result.deltaPRaw) < (unit === 'bar' ? 0.05 : unit === 'kPa' ? 5 : 5000) ? HVAC_GREEN : HVAC_YELLOW) : undefined} />
           </View>
 
           <Text style={styles.noteText}>
