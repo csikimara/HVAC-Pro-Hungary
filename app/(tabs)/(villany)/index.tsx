@@ -18,6 +18,7 @@ const HVAC_TEXT = '#E8ECF0';
 const HVAC_TEXT_SECONDARY = '#7A8694';
 const HVAC_BLUE = '#1E90FF';
 const HVAC_YELLOW = '#F59E0B';
+const HVAC_RED = '#EF4444';
 const HVAC_PURPLE = '#A855F7';
 
 // ─── Ohm's Law Calculator ─────────────────────────────────────────────────────
@@ -42,7 +43,7 @@ function OhmLawCalculator() {
 
     const known = [uVal, iVal, rVal, pVal].filter(v => v !== null && !isNaN(v as number));
     if (known.length < 2) {
-      setError('Legalább 2 értéket adj meg!');
+      setError('Legalább 2 értéket adj meg.');
       setResult(null);
       return;
     }
@@ -82,7 +83,7 @@ function OhmLawCalculator() {
     }
 
     if (calcU === null || calcI === null || calcR === null || calcP === null) {
-      setError('Nem sikerült kiszámítani. Ellenőrizd az értékeket!');
+      setError('Nem sikerült kiszámítani – ellenőrizd az értékeket.');
       setResult(null);
       return;
     }
@@ -462,19 +463,19 @@ function WVAKalkulator() {
           <View style={styles.resultBox}>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Feszültség</Text>
-              <Text style={styles.resultValue}>
+              <Text style={[styles.resultValue, { color: result?.error ? HVAC_TEXT_SECONDARY : HVAC_TEXT }]}>
                 {result?.error ? '—' : result?.u} <Text style={styles.resultUnit}>V</Text>
               </Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Áramerősség</Text>
-              <Text style={styles.resultValue}>
+              <Text style={[styles.resultValue, { color: result?.error ? HVAC_TEXT_SECONDARY : HVAC_TEXT }]}>
                 {result?.error ? '—' : result?.i} <Text style={styles.resultUnit}>A</Text>
               </Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Teljesítmény</Text>
-              <Text style={styles.resultValue}>
+              <Text style={[styles.resultValue, { color: result?.error ? HVAC_TEXT_SECONDARY : HVAC_TEXT }]}>
                 {result?.error ? '—' : result?.p} <Text style={styles.resultUnit}>W</Text>
               </Text>
             </View>
@@ -577,19 +578,19 @@ function TeljesitmenyKalkulator() {
           <View style={styles.resultBox}>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Látszólagos teljesítmény S</Text>
-              <Text style={styles.resultValue}>
+              <Text style={[styles.resultValue, { color: result?.S != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>
                 {result?.S ?? '—'} <Text style={styles.resultUnit}>VA</Text>
               </Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Hatásos teljesítmény P</Text>
-              <Text style={styles.resultValue}>
+              <Text style={[styles.resultValue, { color: result?.P != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>
                 {result?.P ?? '—'} <Text style={styles.resultUnit}>W</Text>
               </Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Meddő teljesítmény Q</Text>
-              <Text style={styles.resultValue}>
+              <Text style={[styles.resultValue, { color: result?.Q != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>
                 {result?.Q ?? '—'} <Text style={styles.resultUnit}>VAr</Text>
               </Text>
             </View>
@@ -676,13 +677,13 @@ function VillanyszamlaKalkulator() {
           <View style={styles.resultBox}>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Fogyasztási díj</Text>
-              <Text style={styles.resultValue}>
+              <Text style={[styles.resultValue, { color: result?.consumptionFee != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>
                 {result?.consumptionFee ?? '—'} <Text style={styles.resultUnit}>Ft</Text>
               </Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Alapdíj</Text>
-              <Text style={styles.resultValue}>
+              <Text style={[styles.resultValue, { color: result?.baseFee != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>
                 {result?.baseFee ?? '—'} <Text style={styles.resultUnit}>Ft</Text>
               </Text>
             </View>
@@ -695,7 +696,7 @@ function VillanyszamlaKalkulator() {
           </View>
 
           <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8 }}>
-            Az alapdíj opcionális. Ha nem adod meg, csak a fogyasztási díj kerül összesítésre.
+            Az alapdíj opcionális – ha üresen hagyod, csak a fogyasztási díj kerül összesítésre.
           </Text>
         </View>
       )}
@@ -827,7 +828,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#EF4444',
+    color: HVAC_RED,
     marginBottom: 8,
   },
   resultBox: {

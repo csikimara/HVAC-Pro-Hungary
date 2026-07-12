@@ -544,11 +544,11 @@ function KompresszioviszonyKalkulator() {
           <View style={styles.resultBox}>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Szívónyomás (abs)</Text>
-              <Text style={styles.resultValue}>{result?.sAbs ?? '—'} <Text style={styles.resultUnit}>bar</Text></Text>
+              <Text style={[styles.resultValue, { color: result?.sAbs != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>{result?.sAbs ?? '—'} <Text style={styles.resultUnit}>bar</Text></Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Nyomónyomás (abs)</Text>
-              <Text style={styles.resultValue}>{result?.dAbs ?? '—'} <Text style={styles.resultUnit}>bar</Text></Text>
+              <Text style={[styles.resultValue, { color: result?.dAbs != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>{result?.dAbs ?? '—'} <Text style={styles.resultUnit}>bar</Text></Text>
             </View>
             <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
               <Text style={[styles.resultLabel, { fontWeight: '600', color: HVAC_TEXT }]}>Kompresszióviszony</Text>
@@ -561,7 +561,7 @@ function KompresszioviszonyKalkulator() {
           </View>
 
           <Text style={styles.noteText}>
-            Normál tartomány: 2,5–4,5. A nyomásokat abszolút értékre konvertálja (1,01325 bar atmoszferikus nyomással).
+            Normál tartomány: 2,5–4,5. Konverzió: 1,01325 bar atmoszferikus nyomással.
           </Text>
         </View>
       )}
@@ -829,7 +829,7 @@ function GyorsHibagyanú() {
           </View>
 
           <Text style={styles.noteText}>
-            Az eredmény kulcsszó-alapú becslés, nem helyettesíti a műszeres mérést. Mindig ellenőrizd a nyomásokat és az áramfelvételt.
+            Kulcsszó-alapú becslés – nem helyettesíti a műszeres mérést.
           </Text>
         </View>
       )}
@@ -976,14 +976,14 @@ function KompresszorElektromosEllenorzes() {
             </View>
             <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
               <Text style={[styles.resultLabel, { flex: 0.4 }]}>Javasolt lépés</Text>
-              <Text style={[styles.resultValue, { fontSize: 14, flex: 0.6, textAlign: 'right', color: HVAC_BLUE }]}>
+              <Text style={[styles.resultValue, { fontSize: 14, flex: 0.6, textAlign: 'right', color: result?.step != null ? HVAC_BLUE : HVAC_TEXT_SECONDARY }]}>
                 {result?.step ?? '—'}
               </Text>
             </View>
           </View>
 
           <Text style={styles.noteText}>
-            Az eredmény tájékoztató jellegű. A C-R + C-S összegének közelítőleg egyenlőnek kell lennie R-S értékével (±15%). Pontos diagnózishoz használj kalibrált mérőeszközt.
+            Tájékoztató jellegű. C-R + C-S ≈ R-S (±15%). Pontos diagnózishoz kalibrált mérőeszköz szükséges.
           </Text>
         </View>
       )}
