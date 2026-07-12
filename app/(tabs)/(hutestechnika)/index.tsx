@@ -252,7 +252,7 @@ function Nyomaspróba() {
     let status: string;
     let statusColor: string;
     if (drop < 0) {
-      status = 'Ellenőrizendő';
+      status = 'Negatív esés – hőmérséklet-hatás vagy mérési hiba';
       statusColor = HVAC_YELLOW;
     } else if (drop <= threshold * 0.05) {
       status = 'Tartja';
@@ -667,7 +667,9 @@ function TulhevitesUtohutes() {
           </View>
 
           <Text style={styles.noteText}>
-            SH = szívócső hőm. − telítési hőm. SC = telítési hőm. − folyékonyvezeték hőm.
+            {mode === 'SH'
+              ? 'SH = szívócső hőm. − telítési hőm. Normál tartomány: 5–12 K.'
+              : 'SC = telítési hőm. − folyékonyvezeték hőm. Normál tartomány: 3–10 K.'}
           </Text>
         </View>
       )}
@@ -1262,7 +1264,7 @@ function FanCoilMerezezo() {
           </View>
 
           <Text style={styles.noteText}>
-            Névleges vízoldali feltételek alapján. Pontos kiválasztáshoz gyártói teljesítménytáblázat szükséges.
+            A korrigált igény a vízoldali hőmérséklet eltérése miatt különbözhet a megadott értéktől. Pontos kiválasztáshoz gyártói teljesítménytáblázat szükséges.
           </Text>
         </View>
       )}
