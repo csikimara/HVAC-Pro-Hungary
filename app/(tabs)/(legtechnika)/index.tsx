@@ -85,9 +85,7 @@ function DuctSizingTool() {
         setResult(null);
         return;
       }
-      const aM = aVal / 1000;
-      const bM = bVal / 1000;
-      const De = 1.3 * Math.pow(aM * bM, 0.625) / Math.pow(aM + bM, 0.25) * 1000;
+      const De = 1.3 * Math.pow(aVal * bVal, 0.625) / Math.pow(aVal + bVal, 0.25);
       const area = (aVal * bVal) / 1_000_000;
       const velocity = qVal / (3600 * area);
       setResult({
@@ -455,7 +453,7 @@ function PipeSizingTool() {
         // Both dimensions provided: compute area, velocity, and equivalent diameter
         const area = (a / 1000) * (b / 1000);
         const vActual = Q / area;
-        const De = 1.3 * Math.pow((a / 1000) * (b / 1000), 0.625) / Math.pow((a + b) / 1000, 0.25) * 1000;
+        const De = 1.3 * Math.pow(a * b, 0.625) / Math.pow(a + b, 0.25);
         const vColor = vActual <= 3.5 ? HVAC_GREEN : vActual <= 5 ? HVAC_YELLOW : HVAC_RED;
         console.log('[Légtechnika] Csőméretezés téglalap (méretek alapján): a=', a, 'b=', b, 'Q=', Q, 'area=', area, 'v=', vActual, 'De=', De);
         return {
