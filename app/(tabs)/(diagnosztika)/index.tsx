@@ -923,7 +923,7 @@ function KompresszorElektromosEllenorzes() {
 
       {open && (
         <View style={styles.cardBody}>
-          <Text style={styles.noteText}>
+          <Text style={[styles.noteText, { marginTop: 0 }]}>
             Add meg a kapcsok közötti ellenállásértékeket (Ω). Mérj áramtalanított állapotban.
           </Text>
 

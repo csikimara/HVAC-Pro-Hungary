@@ -485,23 +485,17 @@ function PtTabla() {
           />
 
           <View style={styles.resultBox}>
-            {result?.outOfRange ? (
-              <ResultRow label="Telítési hőmérséklet" value="Tartományon kívül" highlight={HVAC_YELLOW} />
-            ) : (
-              <>
-                <ResultRow
-                  label="Telítési hőmérséklet"
-                  value={result?.temp ?? '—'}
-                  unit={result?.temp ? '°C' : undefined}
-                  highlight={result?.temp ? HVAC_CYAN : undefined}
-                />
-                <ResultRow
-                  label="Adat forrása"
-                  value={result === null ? '—' : result.exact ? 'Táblapont egyezés' : 'Interpolált érték'}
-                  highlight={result === null ? undefined : result.exact ? HVAC_GREEN : HVAC_BLUE}
-                />
-              </>
-            )}
+            <ResultRow
+              label="Telítési hőmérséklet"
+              value={result?.outOfRange ? 'Tartományon kívül' : (result?.temp ?? '—')}
+              unit={(!result?.outOfRange && result?.temp) ? '°C' : undefined}
+              highlight={result?.outOfRange ? HVAC_YELLOW : (result?.temp ? HVAC_CYAN : undefined)}
+            />
+            <ResultRow
+              label="Adat forrása"
+              value={result === null ? '—' : result.outOfRange ? '—' : result.exact ? 'Táblapont egyezés' : 'Interpolált érték'}
+              highlight={result === null || result.outOfRange ? undefined : result.exact ? HVAC_GREEN : HVAC_BLUE}
+            />
           </View>
 
           <Text style={styles.noteText}>
@@ -653,28 +647,23 @@ function TulhevitesUtohutes() {
 
           {/* Result box */}
           <View style={styles.resultBox}>
-            {result?.outOfRange ? (
-              <ResultRow label="Telítési hőmérséklet" value="Tartományon kívül" highlight={HVAC_YELLOW} />
-            ) : (
-              <>
-                <ResultRow
-                  label="Telítési hőmérséklet"
-                  value={result?.tSat ?? '—'}
-                  unit={result?.tSat ? '°C' : undefined}
-                />
-                <ResultRow
-                  label={modeLabel}
-                  value={result?.delta ?? '—'}
-                  unit={result?.delta ? 'K' : undefined}
-                  highlight={result?.qualityColor}
-                />
-                <ResultRow
-                  label="Értékelés"
-                  value={result?.quality ?? '—'}
-                  highlight={result?.qualityColor}
-                />
-              </>
-            )}
+            <ResultRow
+              label="Telítési hőmérséklet"
+              value={result?.outOfRange ? 'Tartományon kívül' : (result?.tSat ?? '—')}
+              unit={(!result?.outOfRange && result?.tSat) ? '°C' : undefined}
+              highlight={result?.outOfRange ? HVAC_YELLOW : undefined}
+            />
+            <ResultRow
+              label={modeLabel}
+              value={result?.outOfRange ? '—' : (result?.delta ?? '—')}
+              unit={(!result?.outOfRange && result?.delta) ? 'K' : undefined}
+              highlight={result?.outOfRange ? undefined : result?.qualityColor}
+            />
+            <ResultRow
+              label="Értékelés"
+              value={result?.outOfRange ? '—' : (result?.quality ?? '—')}
+              highlight={result?.outOfRange ? undefined : result?.qualityColor}
+            />
           </View>
 
           <Text style={styles.noteText}>
@@ -1126,7 +1115,7 @@ function DuctedSplitValaszto() {
           {/* Summary placeholder */}
           {rooms.length > 0 && (
             <View style={styles.resultBox}>
-              <ResultRow label="Helyiségek száma" value={`${rooms.length} db`} />
+              <ResultRow label="Helyiségek száma" value={`${rooms.length}`} unit="db" />
               <ResultRow
                 label="Összesített igény"
                 value={summary?.kW ?? '—'}
