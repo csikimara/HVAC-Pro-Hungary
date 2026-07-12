@@ -1082,34 +1082,122 @@ function DuctedSplitValaszto() {
 
 function FanCoilMerezezo() {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<'cooling' | 'heating'>('cooling');
+  const [demand, setDemand] = useState('');
+  const [waterTemp, setWaterTemp] = useState<'7/12°C' | '6/12°C' | '45/40°C' | '55/45°C'>('7/12°C');
+
+  const COOLING_TEMPS: Array<'7/12°C' | '6/12°C'> = ['7/12°C', '6/12°C'];
+  const HEATING_TEMPS: Array<'45/40°C' | '55/45°C'> = ['45/40°C', '55/45°C'];
+
+  // Reset water temp when mode changes
+  const handleModeChange = (m: 'cooling' | 'heating') => {
+    setMode(m);
+    setWaterTemp(m === 'cooling' ? '7/12°C' : '45/40°C');
+    console.log('[Hűtéstechnika] Fan-coil mód:', m);
+  };
+
+  const result = useMemo(() => {
+    const d = parseFloat(demand);
+    if (isNaN(d) || d <= 0) return null;
+
+    const derating: Record<string, number> = {
+      '7/12°C': 1.00, '6/12°C': 1.05,
+      '45/40°C': 1.00, '55/45°C': 1.20,
+    };
+    const adjusted = d / derating[waterTemp];
+
+    let category: string;
+    let color: string;
+    if (adjusted <= 1.5)      { category = 'Kis méret (FCU-S)';      color = HVAC_GREEN; }
+    else if (adjusted <= 3.0) { category = 'Közepes méret (FCU-M)';  color = HVAC_GREEN; }
+    else if (adjusted <= 5.0) { category = 'Nagy méret (FCU-L)';     color = HVAC_BLUE; }
+    else if (adjusted <= 8.0) { category = 'Extra nagy (FCU-XL)';    color = HVAC_YELLOW; }
+    else                      { category = 'Több egység javasolt';    color = HVAC_RED; }
+
+    return {
+      adjusted: adjusted.toFixed(2),
+      category,
+      color,
+    };
+  }, [demand, waterTemp]);
+
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Hűtéstechnika] Fan-coil méretező toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Hűtéstechnika] Fan-coil méretező toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Layers size={20} color={HVAC_YELLOW} />
           <Text style={styles.cardTitle}>Fan-coil méretező</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
+
       {open && (
         <View style={styles.cardBody}>
-          <Text style={styles.label}>Hűtési igény (kW)</Text>
-          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 3.5" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
-          <Text style={styles.label}>Fűtési igény (kW)</Text>
-          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 4.0" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
-          <Text style={styles.label}>Vízoldali hőmérséklet (°C)</Text>
-          <View style={styles.unitRow}>
-            {['7/12°C', '6/12°C', '45/40°C', '55/45°C'].map(t => (
-              <TouchableOpacity key={t} style={styles.unitBtn} activeOpacity={0.7}>
-                <Text style={styles.unitBtnText}>{t}</Text>
+          {/* Mode toggle */}
+          <View style={styles.segmentRow}>
+            {(['cooling', 'heating'] as const).map(m => (
+              <TouchableOpacity
+                key={m}
+                style={[styles.segmentBtn, mode === m && styles.segmentBtnActive]}
+                onPress={() => handleModeChange(m)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, mode === m && styles.segmentTextActive]}>
+                  {m === 'cooling' ? 'Hűtés' : 'Fűtés'}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
-          <View style={styles.resultBox}>
-            <ResultRow label="Ajánlott fan-coil típus" value="—" />
-            <ResultRow label="Szükséges vízmennyiség" value="—" unit="l/h" />
+
+          {/* Demand input */}
+          <Text style={styles.label}>
+            {mode === 'cooling' ? 'Hűtési igény (kW)' : 'Fűtési igény (kW)'}
+          </Text>
+          <TextInput
+            style={styles.inputLarge}
+            value={demand}
+            onChangeText={v => { console.log('[Hűtéstechnika] Fan-coil igény input:', v); setDemand(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 3.5"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          {/* Water temperature */}
+          <Text style={styles.label}>Vízoldali hőmérséklet</Text>
+          <View style={styles.unitRow}>
+            {(mode === 'cooling' ? COOLING_TEMPS : HEATING_TEMPS).map(t => (
+              <TouchableOpacity
+                key={t}
+                style={[styles.unitBtn, waterTemp === t && styles.unitBtnActive]}
+                onPress={() => { console.log('[Hűtéstechnika] Fan-coil vízhőmérséklet:', t); setWaterTemp(t); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.unitBtnText, waterTemp === t && styles.unitBtnTextActive]}>{t}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-          <Text style={styles.noteText}>Méretezési logika hamarosan elérhető.</Text>
+
+          {/* Result */}
+          <View style={styles.resultBox}>
+            <ResultRow
+              label="Névleges igény (korrigált)"
+              value={result?.adjusted ?? '—'}
+              unit={result ? 'kW' : undefined}
+            />
+            <ResultRow
+              label="Javasolt méretkategória"
+              value={result?.category ?? '—'}
+              highlight={result?.color}
+            />
+          </View>
+
+          <Text style={styles.noteText}>
+            Tájékoztató kategorizálás névleges vízoldali feltételek alapján. Pontos kiválasztáshoz gyártói teljesítménytáblázat szükséges.
+          </Text>
         </View>
       )}
     </View>
