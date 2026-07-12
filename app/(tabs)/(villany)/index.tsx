@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -379,38 +379,106 @@ function ResultRow({ label, value, unit, highlight }: { label: string; value: st
 
 function WVAKalkulator() {
   const [open, setOpen] = useState(false);
+  const [uInput, setUInput] = useState('');
+  const [iInput, setIInput] = useState('');
+  const [pInput, setPInput] = useState('');
+
+  const result = useMemo(() => {
+    const u = uInput !== '' ? parseFloat(uInput) : null;
+    const i = iInput !== '' ? parseFloat(iInput) : null;
+    const p = pInput !== '' ? parseFloat(pInput) : null;
+
+    const filled = [u, i, p].filter(v => v !== null && !isNaN(v as number) && (v as number) > 0);
+
+    if (filled.length < 2) return { error: 'Adj meg pontosan 2 értéket a számításhoz.' };
+    if (filled.length > 2) return { error: 'Csak 2 értéket adj meg egyszerre.' };
+
+    let calcU = (u !== null && !isNaN(u) && u > 0) ? u : null;
+    let calcI = (i !== null && !isNaN(i) && i > 0) ? i : null;
+    let calcP = (p !== null && !isNaN(p) && p > 0) ? p : null;
+
+    if (calcU !== null && calcI !== null) calcP = calcU * calcI;
+    else if (calcU !== null && calcP !== null) calcI = calcP / calcU;
+    else if (calcI !== null && calcP !== null) calcU = calcP / calcI;
+
+    return {
+      error: null,
+      u: calcU !== null ? calcU.toFixed(2) : '—',
+      i: calcI !== null ? calcI.toFixed(3) : '—',
+      p: calcP !== null ? calcP.toFixed(2) : '—',
+    };
+  }, [uInput, iInput, pInput]);
+
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Villany] W/V/A kalkulátor toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Villany] W/V/A kalkulátor toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Calculator size={20} color={HVAC_YELLOW} />
           <Text style={styles.cardTitle}>W/V/A kalkulátor</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
+
       {open && (
         <View style={styles.cardBody}>
           <Text style={styles.label}>Feszültség U (V)</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 230" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <TextInput
+            style={styles.input}
+            value={uInput}
+            onChangeText={v => { console.log('[Villany] W/V/A U input:', v); setUInput(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 230"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <Text style={styles.label}>Áramerősség I (A)</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 10" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <TextInput
+            style={styles.input}
+            value={iInput}
+            onChangeText={v => { console.log('[Villany] W/V/A I input:', v); setIInput(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 10"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <Text style={styles.label}>Teljesítmény P (W)</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 2300" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <TextInput
+            style={styles.input}
+            value={pInput}
+            onChangeText={v => { console.log('[Villany] W/V/A P input:', v); setPInput(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 2300"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          {result?.error ? (
+            <Text style={styles.errorText}>{result.error}</Text>
+          ) : null}
+
           <View style={styles.resultBox}>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Feszültség</Text>
-              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>V</Text></Text>
+              <Text style={styles.resultValue}>
+                {result?.error ? '—' : result?.u} <Text style={styles.resultUnit}>V</Text>
+              </Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Áramerősség</Text>
-              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>A</Text></Text>
+              <Text style={styles.resultValue}>
+                {result?.error ? '—' : result?.i} <Text style={styles.resultUnit}>A</Text>
+              </Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Teljesítmény</Text>
-              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>W</Text></Text>
+              <Text style={styles.resultValue}>
+                {result?.error ? '—' : result?.p} <Text style={styles.resultUnit}>W</Text>
+              </Text>
             </View>
           </View>
-          <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8 }}>Számítás hamarosan elérhető.</Text>
         </View>
       )}
     </View>
