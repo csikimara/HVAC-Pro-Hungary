@@ -230,17 +230,54 @@ function CopEer() {
 
 function Nyomaspróba() {
   const [open, setOpen] = useState(true);
-  const [testPressure, setTestPressure] = useState('');
-  const [initialPressure, setInitialPressure] = useState('');
-  const [finalPressure, setFinalPressure] = useState('');
+  const [unit, setUnit] = useState<'bar' | 'kPa' | 'Pa'>('bar');
+  const [startP, setStartP] = useState('');
+  const [endP, setEndP] = useState('');
   const [duration, setDuration] = useState('');
-  const [unit, setUnit] = useState<'bar' | 'Pa' | 'kPa'>('bar');
 
-  const UNITS: Array<'bar' | 'Pa' | 'kPa'> = ['bar', 'kPa', 'Pa'];
+  const UNITS: Array<'bar' | 'kPa' | 'Pa'> = ['bar', 'kPa', 'Pa'];
+
+  const result = useMemo(() => {
+    const p1 = parseFloat(startP);
+    const p2 = parseFloat(endP);
+    if (isNaN(p1) || isNaN(p2)) return null;
+    const drop = p1 - p2;
+    const t = parseFloat(duration);
+    const dropPerMin = (!isNaN(t) && t > 0) ? drop / t : null;
+
+    // thresholds depend on unit
+    const threshold = unit === 'bar' ? 0.1 : unit === 'kPa' ? 10 : 10000;
+    let status: string;
+    let statusColor: string;
+    if (drop < 0) {
+      status = 'Ellenőrizendő';
+      statusColor = HVAC_YELLOW;
+    } else if (drop <= threshold * 0.05) {
+      status = 'Tartja';
+      statusColor = HVAC_GREEN;
+    } else if (drop <= threshold) {
+      status = 'Ellenőrizendő';
+      statusColor = HVAC_YELLOW;
+    } else {
+      status = 'Nem tartja';
+      statusColor = HVAC_RED;
+    }
+
+    return {
+      drop: drop.toFixed(unit === 'Pa' ? 0 : 3),
+      dropPerMin: dropPerMin !== null ? dropPerMin.toFixed(unit === 'Pa' ? 1 : 4) : null,
+      status,
+      statusColor,
+    };
+  }, [startP, endP, duration, unit]);
 
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Hűtéstechnika] Nyomáspróba toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Hűtéstechnika] Nyomáspróba toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <FlaskConical size={20} color={HVAC_GREEN} />
           <Text style={styles.cardTitle}>Nyomáspróba</Text>
@@ -250,7 +287,6 @@ function Nyomaspróba() {
 
       {open && (
         <View style={styles.cardBody}>
-          {/* Pressure unit selector */}
           <Text style={styles.label}>Nyomásegység</Text>
           <View style={styles.unitRow}>
             {UNITS.map(u => (
@@ -265,55 +301,44 @@ function Nyomaspróba() {
             ))}
           </View>
 
-          <Text style={styles.label}>Előírt próbanyomás ({unit})</Text>
+          <Text style={styles.label}>Kezdő nyomás ({unit})</Text>
           <TextInput
             style={styles.inputLarge}
-            value={testPressure}
-            onChangeText={v => { console.log('[Hűtéstechnika] Próbanyomás input:', v); setTestPressure(v); }}
+            value={startP}
+            onChangeText={v => { console.log('[Hűtéstechnika] Kezdő nyomás input:', v); setStartP(v); }}
             keyboardType="numeric"
             placeholder="pl. 40"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
-          <Text style={styles.label}>Kezdeti nyomás ({unit})</Text>
+          <Text style={styles.label}>Végnyomás ({unit})</Text>
           <TextInput
             style={styles.inputLarge}
-            value={initialPressure}
-            onChangeText={v => { console.log('[Hűtéstechnika] Kezdeti nyomás input:', v); setInitialPressure(v); }}
-            keyboardType="numeric"
-            placeholder="pl. 40"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
-
-          <Text style={styles.label}>Záró nyomás ({unit})</Text>
-          <TextInput
-            style={styles.inputLarge}
-            value={finalPressure}
-            onChangeText={v => { console.log('[Hűtéstechnika] Záró nyomás input:', v); setFinalPressure(v); }}
+            value={endP}
+            onChangeText={v => { console.log('[Hűtéstechnika] Végnyomás input:', v); setEndP(v); }}
             keyboardType="numeric"
             placeholder="pl. 39.8"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
-          <Text style={styles.label}>Próbaidő (perc)</Text>
+          <Text style={styles.label}>Eltelt idő (perc)</Text>
           <TextInput
             style={styles.inputLarge}
             value={duration}
-            onChangeText={v => { console.log('[Hűtéstechnika] Próbaidő input:', v); setDuration(v); }}
+            onChangeText={v => { console.log('[Hűtéstechnika] Eltelt idő input:', v); setDuration(v); }}
             keyboardType="numeric"
             placeholder="pl. 30"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
           <Text style={styles.noteText}>
-            Hűtőköri nyomáspróba: az előírt próbanyomást a rendszer típusától és a hűtőközegtől függően a vonatkozó szabvány (pl. EN 378) határozza meg.
+            Megjegyzés: a környezeti hőmérséklet változása befolyásolhatja a nyomásmérési eredményt. Stabil hőmérsékleten végzett mérés pontosabb eredményt ad.
           </Text>
 
-          {/* Result */}
           <View style={styles.resultBox}>
-            <ResultRow label="Nyomásesés" value="—" unit={unit} />
-            <ResultRow label="Nyomásesés / perc" value="—" unit={`${unit}/perc`} />
-            <ResultRow label="Eredmény" value="—" />
+            <ResultRow label="Nyomásesés" value={result?.drop ?? '—'} unit={result ? unit : undefined} />
+            <ResultRow label="Nyomásesés / perc" value={result?.dropPerMin ?? '—'} unit={result?.dropPerMin ? `${unit}/perc` : undefined} />
+            <ResultRow label="Eredmény" value={result?.status ?? '—'} highlight={result?.statusColor} />
           </View>
         </View>
       )}
