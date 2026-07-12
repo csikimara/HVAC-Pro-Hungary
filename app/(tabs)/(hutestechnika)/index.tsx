@@ -782,6 +782,13 @@ function HutokörGyorsEllenorzes() {
 
 // ─── Méretezés section ────────────────────────────────────────────────────────
 
+const STANDARD_COOLING_CLASSES = [2.5, 3.5, 5.0, 7.1, 10.0, 12.5, 14.0];
+
+function recommendedClass(kW: number): string {
+  const match = STANDARD_COOLING_CLASSES.find(c => c >= kW);
+  return match ? `${match} kW osztály` : `>${STANDARD_COOLING_CLASSES[STANDARD_COOLING_CLASSES.length - 1]} kW – több egység`;
+}
+
 function SplitGyorsmerezezo() {
   const [open, setOpen] = useState(false);
   const [area, setArea] = useState('');
@@ -868,6 +875,11 @@ function SplitGyorsmerezezo() {
           <View style={styles.resultBox}>
             <ResultRow label="Becsült hűtési igény" value={result?.kW ?? '—'} unit={result ? 'kW' : undefined} highlight={result ? HVAC_CYAN : undefined} />
             <ResultRow label="BTU/h" value={result?.btu ?? '—'} unit={result ? 'BTU/h' : undefined} />
+            <ResultRow
+              label="Javasolt méretosztály"
+              value={result ? recommendedClass(parseFloat(result.kW)) : '—'}
+              highlight={result ? HVAC_BLUE : undefined}
+            />
           </View>
 
           <Text style={styles.noteText}>
@@ -1112,7 +1124,11 @@ function DuctedSplitValaszto() {
                 value={summary?.btu ?? '—'}
                 unit={summary ? 'BTU/h' : undefined}
               />
-              <ResultRow label="Javasolt modell" value="—" />
+              <ResultRow
+                label="Javasolt méretosztály"
+                value={summary ? recommendedClass(parseFloat(summary.kW)) : '—'}
+                highlight={summary ? HVAC_BLUE : undefined}
+              />
             </View>
           )}
 
