@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ChevronDown, ChevronUp, ChevronLeft, Zap, Activity, Cpu } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ChevronLeft, Zap, Activity, Cpu, Calculator, Receipt, ToggleLeft } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
@@ -375,6 +375,140 @@ function ResultRow({ label, value, unit, highlight }: { label: string; value: st
   );
 }
 
+// ─── W/V/A kalkulátor ─────────────────────────────────────────────────────────
+
+function WVAKalkulator() {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Villany] W/V/A kalkulátor toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+        <View style={styles.cardHeaderLeft}>
+          <Calculator size={20} color={HVAC_YELLOW} />
+          <Text style={styles.cardTitle}>W/V/A kalkulátor</Text>
+        </View>
+        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.cardBody}>
+          <Text style={styles.label}>Feszültség U (V)</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 230" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Áramerősség I (A)</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 10" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Teljesítmény P (W)</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 2300" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <View style={styles.resultBox}>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Feszültség</Text>
+              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>V</Text></Text>
+            </View>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Áramerősség</Text>
+              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>A</Text></Text>
+            </View>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Teljesítmény</Text>
+              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>W</Text></Text>
+            </View>
+          </View>
+          <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8 }}>Számítás hamarosan elérhető.</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── 1f / 3f teljesítmény kalkulátor ─────────────────────────────────────────
+
+function TeljesitmenyKalkulator() {
+  const [open, setOpen] = useState(false);
+  const [phase, setPhase] = useState<'1f' | '3f'>('1f');
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Villany] Teljesítmény kalkulátor toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+        <View style={styles.cardHeaderLeft}>
+          <ToggleLeft size={20} color={HVAC_BLUE} />
+          <Text style={styles.cardTitle}>1f / 3f teljesítmény kalkulátor</Text>
+        </View>
+        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.cardBody}>
+          <View style={styles.segmentRow}>
+            {(['1f', '3f'] as const).map(p => (
+              <TouchableOpacity key={p} style={[styles.segmentBtn, phase === p && styles.segmentBtnActive]} onPress={() => { console.log('[Villany] Fázis:', p); setPhase(p); }} activeOpacity={0.7}>
+                <Text style={[styles.segmentText, phase === p && styles.segmentBtnActiveText]}>{p === '1f' ? 'Egyfázisú' : 'Háromfázisú'}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.label}>Feszültség U (V)</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder={phase === '1f' ? 'pl. 230' : 'pl. 400'} placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Áramerősség I (A)</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 16" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Teljesítménytényező cos φ</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 0.9" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <View style={styles.resultBox}>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Látszólagos teljesítmény S</Text>
+              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>VA</Text></Text>
+            </View>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Hatásos teljesítmény P</Text>
+              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>W</Text></Text>
+            </View>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Meddő teljesítmény Q</Text>
+              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>VAr</Text></Text>
+            </View>
+          </View>
+          <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8 }}>Számítás hamarosan elérhető.</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Villanyszámla kalkulátor ─────────────────────────────────────────────────
+
+function VillanyszamlaKalkulator() {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Villany] Villanyszámla kalkulátor toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+        <View style={styles.cardHeaderLeft}>
+          <Receipt size={20} color={HVAC_PURPLE} />
+          <Text style={styles.cardTitle}>Villanyszámla kalkulátor</Text>
+        </View>
+        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.cardBody}>
+          <Text style={styles.label}>Fogyasztás (kWh)</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 350" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Egységár (Ft/kWh)</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 36.4" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Alapdíj (Ft/hó)</Text>
+          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 1500" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <View style={styles.resultBox}>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Fogyasztási díj</Text>
+              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>Ft</Text></Text>
+            </View>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Alapdíj</Text>
+              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>Ft</Text></Text>
+            </View>
+            <View style={styles.resultRow}>
+              <Text style={styles.resultLabel}>Becsült számla</Text>
+              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>Ft</Text></Text>
+            </View>
+          </View>
+          <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8 }}>Számítás hamarosan elérhető.</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function VillanyScreen() {
@@ -415,6 +549,9 @@ export default function VillanyScreen() {
         <OhmLawCalculator />
         <SinglePhasePower />
         <ThreePhasePower />
+        <WVAKalkulator />
+        <TeljesitmenyKalkulator />
+        <VillanyszamlaKalkulator />
       </ScrollView>
     </View>
   );
@@ -534,5 +671,29 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: HVAC_BORDER,
     marginVertical: 2,
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    backgroundColor: HVAC_SURFACE,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 14,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  segmentBtnActive: {
+    backgroundColor: HVAC_BLUE,
+  },
+  segmentText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: HVAC_TEXT_SECONDARY,
+  },
+  segmentBtnActiveText: {
+    color: '#FFFFFF',
   },
 });
