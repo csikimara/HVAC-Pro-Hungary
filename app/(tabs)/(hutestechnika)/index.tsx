@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ChevronDown, ChevronUp, ChevronLeft, Zap, Gauge, FlaskConical, Table2, Thermometer, Activity, Ruler, Wind, Layers } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ChevronLeft, Zap, Gauge, FlaskConical, Table2, Thermometer, Activity, Ruler, Wind, Layers, Plus, Trash2 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
@@ -826,31 +826,201 @@ function SplitGyorsmerezezo() {
   );
 }
 
+// ─── Room type for DuctedSplitValaszto ───────────────────────────────────────
+type DuctedRoom = {
+  id: string;
+  name: string;
+  length: string;
+  width: string;
+  height: string;
+  orientation: 'Észak' | 'Kelet' | 'Dél' | 'Nyugat';
+  insulation: 'Gyenge' | 'Közepes' | 'Jó';
+  windowSize: 'Kicsi' | 'Közepes' | 'Nagy';
+};
+
 function DuctedSplitValaszto() {
   const [open, setOpen] = useState(false);
+  const [rooms, setRooms] = useState<DuctedRoom[]>([]);
+
+  function addRoom() {
+    const id = Date.now().toString();
+    setRooms(prev => [...prev, {
+      id,
+      name: `${prev.length + 1}. helyiség`,
+      length: '',
+      width: '',
+      height: '',
+      orientation: 'Dél',
+      insulation: 'Közepes',
+      windowSize: 'Közepes',
+    }]);
+    console.log('[Hűtéstechnika] Ducted split – új helyiség hozzáadva, id:', id);
+  }
+
+  function updateRoom(id: string, field: keyof DuctedRoom, value: string) {
+    setRooms(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+    console.log('[Hűtéstechnika] Ducted split – helyiség frissítve, id:', id, 'mező:', field);
+  }
+
+  function deleteRoom(id: string) {
+    setRooms(prev => prev.filter(r => r.id !== id));
+    console.log('[Hűtéstechnika] Ducted split – helyiség törölve, id:', id);
+  }
+
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Hűtéstechnika] Ducted split választó toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Hűtéstechnika] Ducted split választó toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Wind size={20} color={HVAC_CYAN} />
           <Text style={styles.cardTitle}>Ducted split választó</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
+
       {open && (
         <View style={styles.cardBody}>
-          <Text style={styles.label}>Szükséges hűtőteljesítmény (kW)</Text>
-          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 5.0" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
-          <Text style={styles.label}>Szükséges légszállítás (m³/h)</Text>
-          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 800" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
-          <Text style={styles.label}>Rendelkezésre álló ESP (Pa)</Text>
-          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 50" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
-          <View style={styles.resultBox}>
-            <ResultRow label="Javasolt modell" value="—" />
-            <ResultRow label="Névleges légszállítás" value="—" unit="m³/h" />
-            <ResultRow label="Névleges ESP" value="—" unit="Pa" />
+          {/* Room count summary */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={[styles.label, { marginBottom: 0 }]}>
+              {rooms.length === 0 ? 'Még nincs helyiség' : `${rooms.length} helyiség`}
+            </Text>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: HVAC_BLUE, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}
+              onPress={addRoom}
+              activeOpacity={0.8}
+            >
+              <Plus size={14} color="#FFFFFF" />
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>Helyiség</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.noteText}>Modell-adatbázis hamarosan elérhető.</Text>
+
+          {/* Room cards */}
+          {rooms.map((room, idx) => (
+            <View
+              key={room.id}
+              style={{ backgroundColor: HVAC_SURFACE, borderWidth: 1, borderColor: HVAC_BORDER, borderRadius: 14, padding: 14, marginBottom: 10 }}
+            >
+              {/* Room header */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: HVAC_TEXT }}>{room.name || `${idx + 1}. helyiség`}</Text>
+                <TouchableOpacity onPress={() => deleteRoom(room.id)} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Trash2 size={15} color={HVAC_RED} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Room name */}
+              <Text style={styles.label}>Helyiség neve</Text>
+              <TextInput
+                style={[styles.inputLarge, { fontSize: 15, padding: 12, marginBottom: 10 }]}
+                value={room.name}
+                onChangeText={v => updateRoom(room.id, 'name', v)}
+                placeholder="pl. Nappali"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+
+              {/* Dimensions row */}
+              <Text style={styles.label}>Méretek (m)</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.label, { fontSize: 11 }]}>Hossz</Text>
+                  <TextInput
+                    style={[styles.inputLarge, { fontSize: 15, padding: 12, marginBottom: 0 }]}
+                    value={room.length}
+                    onChangeText={v => updateRoom(room.id, 'length', v)}
+                    keyboardType="numeric"
+                    placeholder="pl. 5"
+                    placeholderTextColor={HVAC_TEXT_SECONDARY}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.label, { fontSize: 11 }]}>Szélesség</Text>
+                  <TextInput
+                    style={[styles.inputLarge, { fontSize: 15, padding: 12, marginBottom: 0 }]}
+                    value={room.width}
+                    onChangeText={v => updateRoom(room.id, 'width', v)}
+                    keyboardType="numeric"
+                    placeholder="pl. 4"
+                    placeholderTextColor={HVAC_TEXT_SECONDARY}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.label, { fontSize: 11 }]}>Magasság</Text>
+                  <TextInput
+                    style={[styles.inputLarge, { fontSize: 15, padding: 12, marginBottom: 0 }]}
+                    value={room.height}
+                    onChangeText={v => updateRoom(room.id, 'height', v)}
+                    keyboardType="numeric"
+                    placeholder="pl. 2.7"
+                    placeholderTextColor={HVAC_TEXT_SECONDARY}
+                  />
+                </View>
+              </View>
+
+              {/* Orientation */}
+              <Text style={styles.label}>Tájolás</Text>
+              <View style={[styles.unitRow, { marginBottom: 10 }]}>
+                {(['Észak', 'Kelet', 'Dél', 'Nyugat'] as const).map(o => (
+                  <TouchableOpacity
+                    key={o}
+                    style={[styles.unitBtn, room.orientation === o && styles.unitBtnActive]}
+                    onPress={() => updateRoom(room.id, 'orientation', o)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.unitBtnText, room.orientation === o && styles.unitBtnTextActive]}>{o}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Insulation */}
+              <Text style={styles.label}>Szigetelés</Text>
+              <View style={[styles.unitRow, { marginBottom: 10 }]}>
+                {(['Gyenge', 'Közepes', 'Jó'] as const).map(q => (
+                  <TouchableOpacity
+                    key={q}
+                    style={[styles.unitBtn, room.insulation === q && styles.unitBtnActive]}
+                    onPress={() => updateRoom(room.id, 'insulation', q)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.unitBtnText, room.insulation === q && styles.unitBtnTextActive]}>{q}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Window size */}
+              <Text style={styles.label}>Ablakfelület</Text>
+              <View style={[styles.unitRow, { marginBottom: 0 }]}>
+                {(['Kicsi', 'Közepes', 'Nagy'] as const).map(w => (
+                  <TouchableOpacity
+                    key={w}
+                    style={[styles.unitBtn, room.windowSize === w && styles.unitBtnActive]}
+                    onPress={() => updateRoom(room.id, 'windowSize', w)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.unitBtnText, room.windowSize === w && styles.unitBtnTextActive]}>{w}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ))}
+
+          {/* Summary placeholder */}
+          {rooms.length > 0 && (
+            <View style={styles.resultBox}>
+              <ResultRow label="Helyiségek száma" value={`${rooms.length} db`} />
+              <ResultRow label="Összes becsült igény" value="—" unit="kW" />
+              <ResultRow label="Javasolt modell" value="—" />
+            </View>
+          )}
+
+          <Text style={styles.noteText}>
+            {rooms.length === 0
+              ? 'Adj hozzá helyiségeket a méretezéshez. Számítási logika hamarosan elérhető.'
+              : 'Számítási logika hamarosan elérhető.'}
+          </Text>
         </View>
       )}
     </View>
