@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ChevronDown, ChevronUp, ChevronLeft, Zap, Gauge, FlaskConical, Table2, Thermometer, Activity } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ChevronLeft, Zap, Gauge, FlaskConical, Table2, Thermometer, Activity, Ruler, Wind, Layers } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
@@ -780,6 +780,119 @@ function HutokörGyorsEllenorzes() {
   );
 }
 
+// ─── Méretezés section ────────────────────────────────────────────────────────
+
+function SplitGyorsmerezezo() {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Hűtéstechnika] Split gyorsméretező toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+        <View style={styles.cardHeaderLeft}>
+          <Ruler size={20} color={HVAC_BLUE} />
+          <Text style={styles.cardTitle}>Split gyorsméretező</Text>
+        </View>
+        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.cardBody}>
+          <Text style={styles.label}>Helyiség alapterülete (m²)</Text>
+          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 25" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Belmagasság (m)</Text>
+          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 2.7" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Tájolás / napterhelés</Text>
+          <View style={styles.unitRow}>
+            {['Észak', 'Kelet', 'Dél', 'Nyugat'].map(d => (
+              <TouchableOpacity key={d} style={styles.unitBtn} activeOpacity={0.7}>
+                <Text style={styles.unitBtnText}>{d}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.label}>Szigetelés minősége</Text>
+          <View style={styles.unitRow}>
+            {['Gyenge', 'Közepes', 'Jó'].map(q => (
+              <TouchableOpacity key={q} style={styles.unitBtn} activeOpacity={0.7}>
+                <Text style={styles.unitBtnText}>{q}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.resultBox}>
+            <ResultRow label="Ajánlott teljesítmény" value="—" unit="kW" />
+            <ResultRow label="Ajánlott BTU/h" value="—" unit="BTU/h" />
+          </View>
+          <Text style={styles.noteText}>Számítás hamarosan elérhető.</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function DuctedSplitValaszto() {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Hűtéstechnika] Ducted split választó toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+        <View style={styles.cardHeaderLeft}>
+          <Wind size={20} color={HVAC_CYAN} />
+          <Text style={styles.cardTitle}>Ducted split választó</Text>
+        </View>
+        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.cardBody}>
+          <Text style={styles.label}>Szükséges hűtőteljesítmény (kW)</Text>
+          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 5.0" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Szükséges légszállítás (m³/h)</Text>
+          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 800" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Rendelkezésre álló ESP (Pa)</Text>
+          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 50" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <View style={styles.resultBox}>
+            <ResultRow label="Javasolt modell" value="—" />
+            <ResultRow label="Névleges légszállítás" value="—" unit="m³/h" />
+            <ResultRow label="Névleges ESP" value="—" unit="Pa" />
+          </View>
+          <Text style={styles.noteText}>Modell-adatbázis hamarosan elérhető.</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function FanCoilMerezezo() {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={styles.card}>
+      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Hűtéstechnika] Fan-coil méretező toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+        <View style={styles.cardHeaderLeft}>
+          <Layers size={20} color={HVAC_YELLOW} />
+          <Text style={styles.cardTitle}>Fan-coil méretező</Text>
+        </View>
+        {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.cardBody}>
+          <Text style={styles.label}>Hűtési igény (kW)</Text>
+          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 3.5" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Fűtési igény (kW)</Text>
+          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 4.0" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <Text style={styles.label}>Vízoldali hőmérséklet (°C)</Text>
+          <View style={styles.unitRow}>
+            {['7/12°C', '6/12°C', '45/40°C', '55/45°C'].map(t => (
+              <TouchableOpacity key={t} style={styles.unitBtn} activeOpacity={0.7}>
+                <Text style={styles.unitBtnText}>{t}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.resultBox}>
+            <ResultRow label="Ajánlott fan-coil típus" value="—" />
+            <ResultRow label="Szükséges vízmennyiség" value="—" unit="l/h" />
+          </View>
+          <Text style={styles.noteText}>Méretezési logika hamarosan elérhető.</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function HutestechnikaScreen() {
@@ -816,6 +929,14 @@ export default function HutestechnikaScreen() {
         <PtTabla />
         <TulhevitesUtohutes />
         <HutokörGyorsEllenorzes />
+
+        {/* Méretezés section */}
+        <Text style={{ fontSize: 18, fontWeight: '700', color: HVAC_TEXT, marginTop: 16, marginBottom: 12, letterSpacing: -0.2 }}>
+          Méretezés
+        </Text>
+        <SplitGyorsmerezezo />
+        <DuctedSplitValaszto />
+        <FanCoilMerezezo />
       </ScrollView>
     </View>
   );
