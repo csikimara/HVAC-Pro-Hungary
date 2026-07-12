@@ -784,42 +784,95 @@ function HutokörGyorsEllenorzes() {
 
 function SplitGyorsmerezezo() {
   const [open, setOpen] = useState(false);
+  const [area, setArea] = useState('');
+  const [height, setHeight] = useState('');
+  const [orientation, setOrientation] = useState<'Észak' | 'Kelet' | 'Dél' | 'Nyugat'>('Dél');
+  const [insulation, setInsulation] = useState<'Gyenge' | 'Közepes' | 'Jó'>('Közepes');
+
+  const result = useMemo(() => {
+    const a = parseFloat(area);
+    if (isNaN(a) || a <= 0) return null;
+    const h = parseFloat(height);
+    const heightFactor = (!isNaN(h) && h > 2.7) ? 1 + Math.round((h - 2.7) / 0.1) * 0.05 : 1.0;
+    const orientMult: Record<string, number> = { 'Észak': 0.90, 'Kelet': 1.00, 'Dél': 1.15, 'Nyugat': 1.10 };
+    const insMult: Record<string, number> = { 'Gyenge': 1.20, 'Közepes': 1.00, 'Jó': 0.85 };
+    const kW = (a * 70 * heightFactor * orientMult[orientation] * insMult[insulation]) / 1000;
+    const btu = kW * 3412.14;
+    return { kW: kW.toFixed(2), btu: Math.round(btu).toLocaleString('hu-HU') };
+  }, [area, height, orientation, insulation]);
+
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Hűtéstechnika] Split gyorsméretező toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Hűtéstechnika] Split gyorsméretező toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Ruler size={20} color={HVAC_BLUE} />
           <Text style={styles.cardTitle}>Split gyorsméretező</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
+
       {open && (
         <View style={styles.cardBody}>
           <Text style={styles.label}>Helyiség alapterülete (m²)</Text>
-          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 25" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
-          <Text style={styles.label}>Belmagasság (m)</Text>
-          <TextInput style={styles.inputLarge} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 2.7" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <TextInput
+            style={styles.inputLarge}
+            value={area}
+            onChangeText={v => { console.log('[Hűtéstechnika] Split gyorsméretező alapterület:', v); setArea(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 25"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          <Text style={styles.label}>Belmagasság (m) – opcionális</Text>
+          <TextInput
+            style={styles.inputLarge}
+            value={height}
+            onChangeText={v => { console.log('[Hűtéstechnika] Split gyorsméretező belmagasság:', v); setHeight(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 2.7"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <Text style={styles.label}>Tájolás / napterhelés</Text>
           <View style={styles.unitRow}>
-            {['Észak', 'Kelet', 'Dél', 'Nyugat'].map(d => (
-              <TouchableOpacity key={d} style={styles.unitBtn} activeOpacity={0.7}>
-                <Text style={styles.unitBtnText}>{d}</Text>
+            {(['Észak', 'Kelet', 'Dél', 'Nyugat'] as const).map(d => (
+              <TouchableOpacity
+                key={d}
+                style={[styles.unitBtn, orientation === d && styles.unitBtnActive]}
+                onPress={() => { console.log('[Hűtéstechnika] Split gyorsméretező tájolás:', d); setOrientation(d); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.unitBtnText, orientation === d && styles.unitBtnTextActive]}>{d}</Text>
               </TouchableOpacity>
             ))}
           </View>
+
           <Text style={styles.label}>Szigetelés minősége</Text>
           <View style={styles.unitRow}>
-            {['Gyenge', 'Közepes', 'Jó'].map(q => (
-              <TouchableOpacity key={q} style={styles.unitBtn} activeOpacity={0.7}>
-                <Text style={styles.unitBtnText}>{q}</Text>
+            {(['Gyenge', 'Közepes', 'Jó'] as const).map(q => (
+              <TouchableOpacity
+                key={q}
+                style={[styles.unitBtn, insulation === q && styles.unitBtnActive]}
+                onPress={() => { console.log('[Hűtéstechnika] Split gyorsméretező szigetelés:', q); setInsulation(q); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.unitBtnText, insulation === q && styles.unitBtnTextActive]}>{q}</Text>
               </TouchableOpacity>
             ))}
           </View>
+
           <View style={styles.resultBox}>
-            <ResultRow label="Ajánlott teljesítmény" value="—" unit="kW" />
-            <ResultRow label="Ajánlott BTU/h" value="—" unit="BTU/h" />
+            <ResultRow label="Becsült hűtési igény" value={result?.kW ?? '—'} unit={result ? 'kW' : undefined} highlight={result ? HVAC_CYAN : undefined} />
+            <ResultRow label="BTU/h" value={result?.btu ?? '—'} unit={result ? 'BTU/h' : undefined} />
           </View>
-          <Text style={styles.noteText}>Számítás hamarosan elérhető.</Text>
+
+          <Text style={styles.noteText}>
+            Tájékoztató becslés: 70 W/m² alapon, tájolás és szigetelés korrekciókkal. Pontos méretezéshez hőveszteség-számítás szükséges.
+          </Text>
         </View>
       )}
     </View>
