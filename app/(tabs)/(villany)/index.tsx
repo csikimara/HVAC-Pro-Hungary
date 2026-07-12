@@ -90,9 +90,9 @@ function OhmLawCalculator() {
 
     setResult({
       U: calcU.toFixed(2),
-      I: calcI.toFixed(4),
-      R: calcR.toFixed(4),
-      P: calcP.toFixed(2),
+      I: calcI.toFixed(3),
+      R: calcR.toFixed(3),
+      P: Math.round(calcP).toString(),
     });
   }
 
@@ -206,12 +206,12 @@ function SinglePhasePower() {
     const Q = Math.sqrt(Math.max(0, S * S - P * P));
 
     setResult({
-      S_VA: S.toFixed(2),
-      S_kVA: (S / 1000).toFixed(4),
-      P_W: P.toFixed(2),
-      P_kW: (P / 1000).toFixed(4),
-      Q_VAr: Q.toFixed(2),
-      Q_kVAr: (Q / 1000).toFixed(4),
+      S_VA: Math.round(S).toString(),
+      S_kVA: (S / 1000).toFixed(3),
+      P_W: Math.round(P).toString(),
+      P_kW: (P / 1000).toFixed(3),
+      Q_VAr: Math.round(Q).toString(),
+      Q_kVAr: (Q / 1000).toFixed(3),
       cosPhi: cosPVal.toFixed(3),
     });
   }
@@ -302,12 +302,12 @@ function ThreePhasePower() {
 
     setResult({
       Uf: Uf.toFixed(2),
-      S_VA: S.toFixed(2),
-      S_kVA: (S / 1000).toFixed(4),
-      P_W: P.toFixed(2),
-      P_kW: (P / 1000).toFixed(4),
-      Q_VAr: Q.toFixed(2),
-      Q_kVAr: (Q / 1000).toFixed(4),
+      S_VA: Math.round(S).toString(),
+      S_kVA: (S / 1000).toFixed(3),
+      P_W: Math.round(P).toString(),
+      P_kW: (P / 1000).toFixed(3),
+      Q_VAr: Math.round(Q).toString(),
+      Q_kVAr: (Q / 1000).toFixed(3),
     });
   }
 
@@ -406,7 +406,7 @@ function WVAKalkulator() {
       error: null,
       u: calcU !== null ? calcU.toFixed(2) : '—',
       i: calcI !== null ? calcI.toFixed(3) : '—',
-      p: calcP !== null ? calcP.toFixed(2) : '—',
+      p: calcP !== null ? Math.round(calcP).toString() : '—',
     };
   }, [uInput, iInput, pInput]);
 
@@ -508,9 +508,9 @@ function TeljesitmenyKalkulator() {
     const Q = P !== null ? Math.sqrt(Math.max(0, S * S - P * P)) : null;
 
     return {
-      S: S.toFixed(2),
-      P: P !== null ? P.toFixed(2) : null,
-      Q: Q !== null ? Q.toFixed(2) : null,
+      S: Math.round(S).toString(),
+      P: P !== null ? Math.round(P).toString() : null,
+      Q: Q !== null ? Math.round(Q).toString() : null,
     };
   }, [uInput, iInput, cosInput, phase]);
 

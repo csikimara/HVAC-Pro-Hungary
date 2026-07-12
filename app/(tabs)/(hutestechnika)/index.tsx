@@ -71,10 +71,12 @@ function TeljesitmenyAtvalto() {
     if (isNaN(v) || v < 0) return null;
     const kw = v * TO_KW[fromUnit];
     const out = kw * FROM_KW[toUnit];
-    // choose decimal places by magnitude
-    if (out >= 1000) return out.toFixed(1);
-    if (out >= 10)   return out.toFixed(2);
-    return out.toFixed(4);
+    if (toUnit === 'kW') return out.toFixed(2);
+    if (toUnit === 'W') return Math.round(out).toString();
+    if (toUnit === 'BTU/h') return Math.round(out).toLocaleString('hu-HU');
+    if (toUnit === 'kcal/h') return Math.round(out).toLocaleString('hu-HU');
+    if (toUnit === 'tonna hűtés') return out.toFixed(3);
+    return out.toFixed(2);
   }, [inputVal, fromUnit, toUnit]);
 
   return (
@@ -263,9 +265,21 @@ function Nyomaspróba() {
       statusColor = HVAC_RED;
     }
 
+    const dropFormatted = unit === 'bar'
+      ? drop.toFixed(3)
+      : unit === 'kPa'
+        ? drop.toFixed(1)
+        : Math.round(drop).toString();
+    const dropPerMinFormatted = dropPerMin !== null
+      ? unit === 'bar'
+        ? dropPerMin.toFixed(4)
+        : unit === 'kPa'
+          ? dropPerMin.toFixed(2)
+          : dropPerMin.toFixed(1)
+      : null;
     return {
-      drop: drop.toFixed(unit === 'Pa' ? 0 : 3),
-      dropPerMin: dropPerMin !== null ? dropPerMin.toFixed(unit === 'Pa' ? 1 : 4) : null,
+      drop: dropFormatted,
+      dropPerMin: dropPerMinFormatted,
       status,
       statusColor,
     };
