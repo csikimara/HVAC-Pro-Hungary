@@ -19,6 +19,7 @@ const HVAC_TEXT_SECONDARY = '#7A8694';
 const HVAC_BLUE = '#1E90FF';
 const HVAC_YELLOW = '#F59E0B';
 const HVAC_RED = '#EF4444';
+const HVAC_GREEN = '#22C55E';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +57,15 @@ const FUJITSU_MODELS = [
 
 type FujitsuModel = typeof FUJITSU_MODELS[number];
 
-function UnitCard() {
+function UnitCard({
+  availableEsp, setAvailableEsp,
+  filterLoss, setFilterLoss,
+  damperLoss, setDamperLoss,
+}: {
+  availableEsp: string; setAvailableEsp: (v: string) => void;
+  filterLoss: string; setFilterLoss: (v: string) => void;
+  damperLoss: string; setDamperLoss: (v: string) => void;
+}) {
   const [open, setOpen] = useState(true);
   const [selectedModel, setSelectedModel] = useState<FujitsuModel | null>(null);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
@@ -67,9 +76,6 @@ function UnitCard() {
   const [coolingKw, setCoolingKw] = useState('');
   const [heatingKw, setHeatingKw] = useState('');
   const [nominalAirflow, setNominalAirflow] = useState('');
-  const [availableEsp, setAvailableEsp] = useState('');
-  const [filterLoss, setFilterLoss] = useState('');
-  const [damperLoss, setDamperLoss] = useState('');
 
   function selectModel(m: FujitsuModel) {
     setSelectedModel(m);
@@ -374,9 +380,33 @@ function BranchCard({ branch, onUpdate, onDelete }: {
 
 // ─── Summary Card ─────────────────────────────────────────────────────────────
 
-function SummaryCard({ branches }: { branches: Branch[] }) {
-  const branchCount = branches.length;
-  const branchCountText = `${branchCount} db`;
+function SummaryCard({
+  branches,
+  availableEsp,
+  filterLoss,
+  damperLoss,
+}: {
+  branches: Branch[];
+  availableEsp: string;
+  filterLoss: string;
+  damperLoss: string;
+}) {
+  const esp = parseFloat(availableEsp);
+  const filter = parseFloat(filterLoss);
+  const damper = parseFloat(damperLoss);
+  const hasEsp = !isNaN(esp) && esp > 0;
+  const usableEsp = hasEsp
+    ? esp - (isNaN(filter) ? 0 : filter) - (isNaN(damper) ? 0 : damper)
+    : null;
+  const usableEspColor = usableEsp === null
+    ? HVAC_TEXT_SECONDARY
+    : usableEsp >= 0 ? HVAC_GREEN : HVAC_RED;
+
+  const branchCountText = `${branches.length} db`;
+  const espText = hasEsp ? `${esp} Pa` : '—';
+  const filterText = !isNaN(filter) && filter > 0 ? `${filter} Pa` : '—';
+  const damperText = !isNaN(damper) && damper > 0 ? `${damper} Pa` : '—';
+  const usableEspText = usableEsp !== null ? `${usableEsp.toFixed(1)} Pa` : '—';
 
   return (
     <View style={[styles.card, { borderColor: HVAC_BORDER }]}>
@@ -391,6 +421,22 @@ function SummaryCard({ branches }: { branches: Branch[] }) {
           <View style={styles.resultRow}>
             <Text style={styles.resultLabel}>Ágak száma</Text>
             <Text style={styles.resultValue}>{branchCountText}</Text>
+          </View>
+          <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+            <Text style={styles.resultLabel}>Rendelkezésre álló ESP</Text>
+            <Text style={styles.resultValue}>{espText}</Text>
+          </View>
+          <View style={styles.resultRow}>
+            <Text style={styles.resultLabel}>− Szűrődoboz veszteség</Text>
+            <Text style={styles.resultValue}>{filterText}</Text>
+          </View>
+          <View style={styles.resultRow}>
+            <Text style={styles.resultLabel}>− Pillangószelep veszteség</Text>
+            <Text style={styles.resultValue}>{damperText}</Text>
+          </View>
+          <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+            <Text style={[styles.resultLabel, { fontWeight: '600', color: HVAC_TEXT }]}>Felhasználható csatorna ESP</Text>
+            <Text style={[styles.resultValue, { color: usableEspColor }]}>{usableEspText}</Text>
           </View>
           <View style={styles.resultRow}>
             <Text style={styles.resultLabel}>Összes légszállítás</Text>
@@ -418,6 +464,9 @@ function SummaryCard({ branches }: { branches: Branch[] }) {
 export default function LegelosztasScreen() {
   const router = useRouter();
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [availableEsp, setAvailableEsp] = useState('');
+  const [filterLoss, setFilterLoss] = useState('');
+  const [damperLoss, setDamperLoss] = useState('');
 
   function addBranch() {
     const id = Date.now().toString();
@@ -481,7 +530,11 @@ export default function LegelosztasScreen() {
         <Text style={styles.screenTitle}>Légelosztás</Text>
         <Text style={styles.screenSubtitle}>Légcsatorna-ág tervezés és ESP ellenőrzés</Text>
 
-        <UnitCard />
+        <UnitCard
+          availableEsp={availableEsp} setAvailableEsp={setAvailableEsp}
+          filterLoss={filterLoss} setFilterLoss={setFilterLoss}
+          damperLoss={damperLoss} setDamperLoss={setDamperLoss}
+        />
 
         {branches.map(branch => (
           <BranchCard
@@ -501,7 +554,14 @@ export default function LegelosztasScreen() {
           <Text style={styles.addBtnText}>Új ág hozzáadása</Text>
         </TouchableOpacity>
 
-        {hasBranches && <SummaryCard branches={branches} />}
+        {(hasBranches || availableEsp !== '') && (
+          <SummaryCard
+            branches={branches}
+            availableEsp={availableEsp}
+            filterLoss={filterLoss}
+            damperLoss={damperLoss}
+          />
+        )}
       </ScrollView>
     </View>
   );
