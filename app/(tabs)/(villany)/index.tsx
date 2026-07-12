@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { ChevronDown, ChevronUp, ChevronLeft, Zap, Activity, Cpu } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -379,7 +378,6 @@ function ResultRow({ label, value, unit, highlight }: { label: string; value: st
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function VillanyScreen() {
-  const isIOS = process.env.EXPO_OS === 'ios';
   const router = useRouter();
   const backBtn = {
     flexDirection: 'row' as const,
@@ -394,12 +392,13 @@ export default function VillanyScreen() {
     fontWeight: '500' as const,
   };
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={isIOS ? 'padding' : 'height'}>
+    <View style={styles.flex}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
       >
         <TouchableOpacity
           style={backBtn}
@@ -417,7 +416,7 @@ export default function VillanyScreen() {
         <SinglePhasePower />
         <ThreePhasePower />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

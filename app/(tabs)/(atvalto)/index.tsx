@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { ChevronDown, ChevronUp, ChevronLeft, Thermometer, Gauge, Wind, Zap, Activity, DollarSign } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -774,7 +773,6 @@ function CurrencyConverter() {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function AtvaltoScreen() {
-  const isIOS = process.env.EXPO_OS === 'ios';
   const router = useRouter();
   const backBtn = {
     flexDirection: 'row' as const,
@@ -789,15 +787,13 @@ export default function AtvaltoScreen() {
     fontWeight: '500' as const,
   };
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={isIOS ? 'padding' : 'height'}
-    >
+    <View style={styles.flex}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
       >
         <TouchableOpacity
           style={backBtn}
@@ -818,7 +814,7 @@ export default function AtvaltoScreen() {
         <MassFlowConverter />
         <CurrencyConverter />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { ChevronDown, ChevronUp, ChevronLeft, Cpu, AlertTriangle, CheckCircle, XCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -444,7 +443,6 @@ function CompressorDiagnostics() {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function DiagnosztikaSreen() {
-  const isIOS = process.env.EXPO_OS === 'ios';
   const router = useRouter();
   const backBtn = {
     flexDirection: 'row' as const,
@@ -459,12 +457,13 @@ export default function DiagnosztikaSreen() {
     fontWeight: '500' as const,
   };
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={isIOS ? 'padding' : 'height'}>
+    <View style={styles.flex}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
       >
         <TouchableOpacity
           style={backBtn}
@@ -480,7 +479,7 @@ export default function DiagnosztikaSreen() {
         <Text style={styles.screenTitle}>Diagnosztika</Text>
         <CompressorDiagnostics />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

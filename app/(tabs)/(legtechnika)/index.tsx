@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { ChevronDown, ChevronUp, ChevronLeft, Pipette, Ruler, TrendingDown } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -637,7 +636,6 @@ function ResultRow({ label, value, unit, highlight }: { label: string; value: st
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function LegtechnikaScreen() {
-  const isIOS = process.env.EXPO_OS === 'ios';
   const router = useRouter();
   const backBtn = {
     flexDirection: 'row' as const,
@@ -652,12 +650,13 @@ export default function LegtechnikaScreen() {
     fontWeight: '500' as const,
   };
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={isIOS ? 'padding' : 'height'}>
+    <View style={styles.flex}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
       >
         <TouchableOpacity
           style={backBtn}
@@ -675,7 +674,7 @@ export default function LegtechnikaScreen() {
         <PressureDropTool />
         <PipeSizingTool />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

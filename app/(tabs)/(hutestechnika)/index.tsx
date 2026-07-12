@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { ChevronDown, ChevronUp, ChevronLeft, Snowflake, BarChart2, FlaskConical } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -415,7 +414,6 @@ function ResultRow({ label, value, unit, highlight }: { label: string; value: st
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function HutestechnikaScreen() {
-  const isIOS = process.env.EXPO_OS === 'ios';
   const router = useRouter();
   const backBtn = {
     flexDirection: 'row' as const,
@@ -430,12 +428,13 @@ export default function HutestechnikaScreen() {
     fontWeight: '500' as const,
   };
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={isIOS ? 'padding' : 'height'}>
+    <View style={styles.flex}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
       >
         <TouchableOpacity
           style={backBtn}
@@ -453,7 +452,7 @@ export default function HutestechnikaScreen() {
         <CopEerCalculator />
         <PressureTestTool />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
