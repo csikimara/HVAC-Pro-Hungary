@@ -410,19 +410,40 @@ function PipeSizingTool() {
     } else {
       const a = parseFloat(rectWidth);
       const b = parseFloat(rectHeight);
-      if (isNaN(a) || isNaN(b) || a <= 0 || b <= 0) return null;
-      const area = (a / 1000) * (b / 1000);
-      const vActual = Q / area;
-      const De = 1.3 * Math.pow((a / 1000) * (b / 1000), 0.625) / Math.pow((a + b) / 1000, 0.25) * 1000;
-      const vColor = vActual <= 3.5 ? HVAC_GREEN : vActual <= 5 ? HVAC_YELLOW : HVAC_RED;
-      return {
-        diameter: null as string | null,
-        recommended: null as string | null,
-        velocity: vActual.toFixed(2),
-        velocityColor: vColor,
-        crossSection: (area * 10000).toFixed(2),
-        eqDiameter: De.toFixed(1),
-      };
+      const hasDimensions = !isNaN(a) && !isNaN(b) && a > 0 && b > 0;
+      const hasVelocity = !isNaN(v) && v > 0;
+
+      if (hasDimensions) {
+        // Both dimensions provided: compute area, velocity, and equivalent diameter
+        const area = (a / 1000) * (b / 1000);
+        const vActual = Q / area;
+        const De = 1.3 * Math.pow((a / 1000) * (b / 1000), 0.625) / Math.pow((a + b) / 1000, 0.25) * 1000;
+        const vColor = vActual <= 3.5 ? HVAC_GREEN : vActual <= 5 ? HVAC_YELLOW : HVAC_RED;
+        console.log('[Légtechnika] Csőméretezés téglalap (méretek alapján): a=', a, 'b=', b, 'Q=', Q, 'area=', area, 'v=', vActual, 'De=', De);
+        return {
+          diameter: null as string | null,
+          recommended: null as string | null,
+          velocity: vActual.toFixed(2),
+          velocityColor: vColor,
+          crossSection: (area * 10000).toFixed(2),
+          eqDiameter: De.toFixed(1),
+        };
+      } else if (hasVelocity) {
+        // Only velocity provided: compute required cross-sectional area from Q and v
+        const area = Q / v;
+        const vColor = v <= 3.5 ? HVAC_GREEN : v <= 5 ? HVAC_YELLOW : HVAC_RED;
+        console.log('[Légtechnika] Csőméretezés téglalap (sebesség alapján): Q=', Q, 'v=', v, 'szükséges terület=', area);
+        return {
+          diameter: null as string | null,
+          recommended: null as string | null,
+          velocity: v.toFixed(2),
+          velocityColor: vColor,
+          crossSection: (area * 10000).toFixed(2),
+          eqDiameter: null as string | null,
+        };
+      } else {
+        return null;
+      }
     }
   }, [airflow, airflowUnit, velocity, shape, rectWidth, rectHeight]);
 
