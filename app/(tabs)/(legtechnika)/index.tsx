@@ -24,6 +24,19 @@ const HVAC_RED = '#EF4444';
 const STANDARD_DIAMETERS = [80, 100, 125, 150, 160, 200, 250, 315, 355, 400, 450, 500, 560, 630];
 const STANDARD_DUCT_DIAMETERS = [80, 100, 125, 150, 160, 200, 250, 315, 355, 400, 450, 500, 560, 630];
 
+const FITTINGS: { label: string; K: number }[] = [
+  { label: 'Könyök 90° (R/D=1)', K: 0.3 },
+  { label: 'Könyök 90° (R/D=0.5)', K: 0.9 },
+  { label: 'Könyök 45°', K: 0.15 },
+  { label: 'T-idom (egyenes)', K: 0.1 },
+  { label: 'T-idom (elágazás)', K: 1.0 },
+  { label: 'Szűkítés (fokozatos)', K: 0.05 },
+  { label: 'Bővítés (fokozatos)', K: 0.07 },
+  { label: 'Belépés (éles perem)', K: 0.5 },
+  { label: 'Kilépés (szabad)', K: 1.0 },
+  { label: 'Visszacsapó szelep', K: 2.5 },
+];
+
 function getVelocityColor(v: number): string {
   if (v <= 3.5) return HVAC_GREEN;
   if (v <= 5) return HVAC_YELLOW;
@@ -227,6 +240,8 @@ function PressureDropTool() {
   const [ductShape, setDuctShape] = useState<'kor' | 'teglalap'>('kor');
   const [rectWidth, setRectWidth] = useState('');
   const [rectHeight, setRectHeight] = useState('');
+  const [selectedFittings, setSelectedFittings] = useState<number[]>([]); // indices into FITTINGS
+  const [fittingsOpen, setFittingsOpen] = useState(false);
 
   const result = useMemo(() => {
     const Q_raw = parseFloat(airflow);
@@ -265,6 +280,13 @@ function PressureDropTool() {
     const R = lambda * (rho * Math.pow(v, 2)) / (2 * D_h);
     const deltaP = L !== null ? R * L : null;
 
+    const dynPressure = 0.5 * rho * Math.pow(v, 2); // Pa
+    const totalK = selectedFittings.reduce((sum, idx) => sum + FITTINGS[idx].K, 0);
+    const fittingLoss = totalK > 0 ? totalK * dynPressure : null;
+    const totalLoss = deltaP !== null || fittingLoss !== null
+      ? (deltaP ?? 0) + (fittingLoss ?? 0)
+      : null;
+
     const vColor = v <= 3.5 ? HVAC_GREEN : v <= 5 ? HVAC_YELLOW : HVAC_RED;
     const rColor = R <= 1.0 ? HVAC_GREEN : R <= 2.0 ? HVAC_YELLOW : HVAC_RED;
 
@@ -274,8 +296,10 @@ function PressureDropTool() {
       pressureDrop: deltaP !== null ? deltaP.toFixed(2) : null,
       specificDrop: R.toFixed(3),
       specificColor: rColor,
+      fittingLoss: fittingLoss !== null ? fittingLoss.toFixed(2) : null,
+      totalLoss: totalLoss !== null ? totalLoss.toFixed(2) : null,
     };
-  }, [airflow, airflowUnit, ductSize, sizeUnit, ductLength, lengthUnit, roughness, ductShape, rectWidth, rectHeight]);
+  }, [airflow, airflowUnit, ductSize, sizeUnit, ductLength, lengthUnit, roughness, ductShape, rectWidth, rectHeight, selectedFittings]);
 
   return (
     <View style={styles.card}>
@@ -462,10 +486,67 @@ function PressureDropTool() {
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
+          {/* Idomveszteségek */}
+          <TouchableOpacity
+            style={[styles.segmentBtn, { alignSelf: 'flex-start', marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }]}
+            onPress={() => {
+              console.log('[Légtechnika] Nyomásesés idomok toggled:', !fittingsOpen);
+              setFittingsOpen(f => !f);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.segmentText}>
+              Idomveszteségek {selectedFittings.length > 0 ? `(${selectedFittings.length})` : ''}
+            </Text>
+            {fittingsOpen
+              ? <ChevronUp size={14} color={HVAC_TEXT_SECONDARY} />
+              : <ChevronDown size={14} color={HVAC_TEXT_SECONDARY} />}
+          </TouchableOpacity>
+
+          {fittingsOpen && (
+            <View style={{ marginBottom: 12, gap: 4 }}>
+              {FITTINGS.map((f, idx) => {
+                const active = selectedFittings.includes(idx);
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      borderRadius: 10,
+                      backgroundColor: active ? HVAC_BLUE + '22' : HVAC_SURFACE,
+                      borderWidth: 1,
+                      borderColor: active ? HVAC_BLUE : HVAC_BORDER,
+                    }}
+                    onPress={() => {
+                      console.log('[Légtechnika] Nyomásesés idom toggled:', f.label, 'active:', !active);
+                      setSelectedFittings(prev =>
+                        active ? prev.filter(i => i !== idx) : [...prev, idx]
+                      );
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 13, color: active ? HVAC_TEXT : HVAC_TEXT_SECONDARY, flex: 1 }}>
+                      {f.label}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: active ? HVAC_BLUE : HVAC_TEXT_SECONDARY, fontWeight: '600', marginLeft: 8 }}>
+                      K = {f.K}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
           <View style={styles.resultBox}>
             <ResultRow label="Légsebesség" value={result?.velocity ?? '—'} unit="m/s" highlight={result?.velocityColor} />
-            <ResultRow label="Teljes nyomásesés" value={result?.pressureDrop ?? '—'} unit="Pa" highlight={result?.pressureDrop ? HVAC_BLUE : undefined} />
             <ResultRow label="Fajlagos nyomásesés" value={result?.specificDrop ?? '—'} unit="Pa/m" highlight={result?.specificColor} />
+            <ResultRow label="Egyenes szakasz" value={result?.pressureDrop ?? '—'} unit="Pa" />
+            <ResultRow label="Idomveszteség" value={result?.fittingLoss ?? '—'} unit="Pa" highlight={result?.fittingLoss ? HVAC_YELLOW : undefined} />
+            <ResultRow label="Teljes nyomásesés" value={result?.totalLoss ?? '—'} unit="Pa" highlight={result?.totalLoss ? HVAC_BLUE : undefined} />
           </View>
         </View>
       )}
