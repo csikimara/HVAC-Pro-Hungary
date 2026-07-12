@@ -608,38 +608,95 @@ function TeljesitmenyKalkulator() {
 
 function VillanyszamlaKalkulator() {
   const [open, setOpen] = useState(false);
+  const [consumption, setConsumption] = useState('');
+  const [unitPrice, setUnitPrice] = useState('');
+  const [basePrice, setBasePrice] = useState('');
+
+  const result = useMemo(() => {
+    const c = parseFloat(consumption);
+    const u = parseFloat(unitPrice);
+    if (isNaN(c) || c <= 0 || isNaN(u) || u <= 0) return null;
+    const consumptionFee = c * u;
+    const base = parseFloat(basePrice);
+    const baseFee = (!isNaN(base) && base >= 0) ? base : 0;
+    const total = consumptionFee + baseFee;
+    return {
+      consumptionFee: Math.round(consumptionFee).toLocaleString('hu-HU'),
+      baseFee: Math.round(baseFee).toLocaleString('hu-HU'),
+      total: Math.round(total).toLocaleString('hu-HU'),
+    };
+  }, [consumption, unitPrice, basePrice]);
+
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Villany] Villanyszámla kalkulátor toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Villany] Villanyszámla kalkulátor toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Receipt size={20} color={HVAC_PURPLE} />
           <Text style={styles.cardTitle}>Villanyszámla kalkulátor</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
+
       {open && (
         <View style={styles.cardBody}>
           <Text style={styles.label}>Fogyasztás (kWh)</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 350" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <TextInput
+            style={styles.input}
+            value={consumption}
+            onChangeText={v => { console.log('[Villany] Villanyszámla fogyasztás input:', v); setConsumption(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 350"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <Text style={styles.label}>Egységár (Ft/kWh)</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 36.4" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
-          <Text style={styles.label}>Alapdíj (Ft/hó)</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 1500" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <TextInput
+            style={styles.input}
+            value={unitPrice}
+            onChangeText={v => { console.log('[Villany] Villanyszámla egységár input:', v); setUnitPrice(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 36.4"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          <Text style={styles.label}>Alapdíj (Ft/hó) – opcionális</Text>
+          <TextInput
+            style={styles.input}
+            value={basePrice}
+            onChangeText={v => { console.log('[Villany] Villanyszámla alapdíj input:', v); setBasePrice(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 1500"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <View style={styles.resultBox}>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Fogyasztási díj</Text>
-              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>Ft</Text></Text>
+              <Text style={styles.resultValue}>
+                {result?.consumptionFee ?? '—'} <Text style={styles.resultUnit}>Ft</Text>
+              </Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Alapdíj</Text>
-              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>Ft</Text></Text>
+              <Text style={styles.resultValue}>
+                {result?.baseFee ?? '—'} <Text style={styles.resultUnit}>Ft</Text>
+              </Text>
             </View>
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Becsült számla</Text>
-              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>Ft</Text></Text>
+            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+              <Text style={[styles.resultLabel, { fontWeight: '600', color: HVAC_TEXT }]}>Becsült számla</Text>
+              <Text style={[styles.resultValue, { color: result ? HVAC_BLUE : HVAC_TEXT }]}>
+                {result?.total ?? '—'} <Text style={styles.resultUnit}>Ft</Text>
+              </Text>
             </View>
           </View>
-          <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8 }}>Számítás hamarosan elérhető.</Text>
+
+          <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 8 }}>
+            Az alapdíj opcionális. Ha nem adod meg, csak a fogyasztási díj kerül összesítésre.
+          </Text>
         </View>
       )}
     </View>
