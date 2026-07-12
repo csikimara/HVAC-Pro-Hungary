@@ -574,39 +574,96 @@ function KompresszioviszonyKalkulator() {
 function DeltaTKalkulator() {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'hutés' | 'fűtés'>('hutés');
+  const [supplyInput, setSupplyInput] = useState('');
+  const [returnInput, setReturnInput] = useState('');
+
+  const result = useMemo(() => {
+    const supply = parseFloat(supplyInput);
+    const ret    = parseFloat(returnInput);
+    if (isNaN(supply) || isNaN(ret)) return null;
+
+    const delta = mode === 'hutés' ? ret - supply : supply - ret;
+
+    let rating: string;
+    let ratingColor: string;
+    if (delta < 6)                    { rating = 'Alacsony';    ratingColor = HVAC_YELLOW; }
+    else if (delta >= 6 && delta <= 14) { rating = 'Megfelelő';  ratingColor = HVAC_GREEN;  }
+    else                              { rating = 'Magas';       ratingColor = HVAC_YELLOW; }
+
+    return { delta: delta.toFixed(1), rating, ratingColor };
+  }, [supplyInput, returnInput, mode]);
+
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Diagnosztika] Delta T kalkulátor toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Diagnosztika] Delta T kalkulátor toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Thermometer size={20} color={HVAC_YELLOW} />
           <Text style={styles.cardTitle}>Delta T kalkulátor</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
+
       {open && (
         <View style={styles.cardBody}>
           <View style={styles.segmentRow}>
             {(['hutés', 'fűtés'] as const).map(m => (
-              <TouchableOpacity key={m} style={[styles.segmentBtn, mode === m && styles.segmentBtnActive]} onPress={() => { console.log('[Diagnosztika] Delta T mód:', m); setMode(m); }} activeOpacity={0.7}>
-                <Text style={[styles.segmentText, mode === m && styles.segmentBtnActiveText]}>{m === 'hutés' ? 'Hűtés' : 'Fűtés'}</Text>
+              <TouchableOpacity
+                key={m}
+                style={[styles.segmentBtn, mode === m && styles.segmentBtnActive]}
+                onPress={() => { console.log('[Diagnosztika] Delta T mód:', m); setMode(m); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, mode === m && styles.segmentBtnActiveText]}>
+                  {m === 'hutés' ? 'Hűtés' : 'Fűtés'}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.label}>Befúvó hőmérséklet (°C)</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 12" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
-          <Text style={styles.label}>Visszatérő hőmérséklet (°C)</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} keyboardType="numeric" placeholder="pl. 24" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+
+          <Text style={styles.label}>Befúvó levegő hőmérséklete (°C)</Text>
+          <TextInput
+            style={styles.input}
+            value={supplyInput}
+            onChangeText={v => { console.log('[Diagnosztika] Delta T befúvó input:', v); setSupplyInput(v); }}
+            keyboardType="numeric"
+            placeholder={mode === 'hutés' ? 'pl. 12' : 'pl. 40'}
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          <Text style={styles.label}>Visszatérő levegő hőmérséklete (°C)</Text>
+          <TextInput
+            style={styles.input}
+            value={returnInput}
+            onChangeText={v => { console.log('[Diagnosztika] Delta T visszatérő input:', v); setReturnInput(v); }}
+            keyboardType="numeric"
+            placeholder={mode === 'hutés' ? 'pl. 24' : 'pl. 22'}
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <View style={styles.resultBox}>
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>ΔT</Text>
-              <Text style={styles.resultValue}>— <Text style={styles.resultUnit}>K</Text></Text>
+            <View style={[styles.resultRow, { borderBottomWidth: 1, borderBottomColor: HVAC_BORDER, paddingBottom: 10 }]}>
+              <Text style={[styles.resultLabel, { fontWeight: '600', color: HVAC_TEXT }]}>ΔT</Text>
+              <Text style={[styles.resultValue, { color: result?.ratingColor ?? HVAC_TEXT }]}>
+                {result?.delta ?? '—'} <Text style={styles.resultUnit}>K</Text>
+              </Text>
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultLabel}>Értékelés</Text>
-              <Text style={styles.resultValue}>—</Text>
+              <Text style={[styles.resultValue, { color: result?.ratingColor ?? HVAC_TEXT_SECONDARY }]}>
+                {result?.rating ?? '—'}
+              </Text>
             </View>
           </View>
-          <Text style={styles.noteText}>Számítás hamarosan elérhető.</Text>
+
+          <Text style={styles.noteText}>
+            {mode === 'hutés'
+              ? 'Hűtés: ΔT = visszatérő − befúvó. Normál tartomány: 6–14 K.'
+              : 'Fűtés: ΔT = befúvó − visszatérő. Normál tartomány: 6–14 K.'}
+          </Text>
         </View>
       )}
     </View>
