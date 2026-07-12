@@ -674,40 +674,163 @@ function DeltaTKalkulator() {
 
 function GyorsHibagyanú() {
   const [open, setOpen] = useState(false);
+  const [symptom, setSymptom] = useState('');
+  const [compState, setCompState] = useState<'Fut' | 'Leáll' | 'Nem indul' | null>(null);
+  const [errorCode, setErrorCode] = useState('');
+
+  const result = useMemo(() => {
+    const text = symptom.toLowerCase();
+    const hasText = text.trim().length > 0;
+    const hasComp = compState !== null;
+    if (!hasText && !hasComp) return null;
+
+    // Keyword rules — order matters, first match wins
+    type Rule = { keywords: string[]; suspicion: string; step: string };
+    const rules: Rule[] = [
+      { keywords: ['alultölt', 'kevés hűtőközeg', 'nem hűt', 'gyengén hűt', 'alacsony nyomás'],
+        suspicion: 'Valószínű alultöltés vagy hűtőközeg-szivárgás',
+        step: 'Ellenőrizd a szívó- és nyomónyomást, mérd meg a túlhevítést (SH)' },
+      { keywords: ['túltölt', 'magas nyomás', 'magas kondenzációs'],
+        suspicion: 'Valószínű túltöltés vagy kondenzátor-probléma',
+        step: 'Ellenőrizd a kondenzációs nyomást és az utóhűtést (SC)' },
+      { keywords: ['zajos', 'zaj', 'csörög', 'kopog', 'rezeg'],
+        suspicion: 'Valószínű mechanikai probléma (kompresszor, ventilátor vagy rögzítés)',
+        step: 'Azonosítsd a zaj forrását, ellenőrizd a rögzítőelemeket és a ventilátort' },
+      { keywords: ['leáll', 'kikapcsol', 'védelmi leállás', 'hőkioldó'],
+        suspicion: 'Valószínű védelmi leállás (hő, nyomás vagy áramvédelem)',
+        step: 'Ellenőrizd a hibakódot, mérd meg az áramfelvételt és a nyomásokat' },
+      { keywords: ['nem indul', 'nem kapcsol be', 'nem reagál'],
+        suspicion: 'Valószínű vezérlési, tápellátási vagy indítási probléma',
+        step: 'Ellenőrizd a tápfeszültséget, a biztosítékot és a vezérlőjelet' },
+      { keywords: ['jegesed', 'befagy', 'jég'],
+        suspicion: 'Valószínű alacsony légáram vagy alultöltés miatti jegesedés',
+        step: 'Ellenőrizd a szűrőt, a légáramot és a szívónyomást' },
+      { keywords: ['nem fűt', 'gyengén fűt', 'hideg levegő fűtés közben'],
+        suspicion: 'Valószínű négyutas szelep- vagy hűtőközeg-probléma fűtés módban',
+        step: 'Ellenőrizd a négyutas szelep működését és a nyomásokat fűtés módban' },
+      { keywords: ['csöpög', 'víz', 'kondenzvíz', 'lefolyó'],
+        suspicion: 'Valószínű eltömődött kondenzvíz-elvezető',
+        step: 'Tisztítsd meg a kondenzvíz-lefolyót és ellenőrizd a tálcát' },
+      { keywords: ['büdös', 'szag', 'penész', 'dohos'],
+        suspicion: 'Valószínű szennyezett hőcserélő vagy szűrő',
+        step: 'Tisztítsd meg a beltéri egységet és a szűrőt' },
+      { keywords: ['magas áram', 'túláram', 'biztosíték'],
+        suspicion: 'Valószínű elektromos terhelési vagy kompresszor-probléma',
+        step: 'Mérd meg az áramfelvételt és hasonlítsd össze a névleges értékkel' },
+    ];
+
+    // Kompresszor állapot rules
+    type CompRule = { state: string; suspicion: string; step: string };
+    const compRules: CompRule[] = [
+      { state: 'Nem indul',
+        suspicion: 'Valószínű indítási, vezérlési vagy tápellátási hiba',
+        step: 'Ellenőrizd a tápfeszültséget, a kondenzátort és a vezérlőjelet' },
+      { state: 'Leáll',
+        suspicion: 'Valószínű védelmi leállás (hő, nyomás vagy áramvédelem)',
+        step: 'Olvasd le a hibakódot, mérd meg az áramfelvételt és a nyomásokat' },
+    ];
+
+    let suspicion = '';
+    let step = '';
+
+    // Text-based match
+    for (const rule of rules) {
+      if (rule.keywords.some(kw => text.includes(kw))) {
+        suspicion = rule.suspicion;
+        step = rule.step;
+        break;
+      }
+    }
+
+    // Compressor state override or supplement
+    if (compState && compState !== 'Fut') {
+      const cr = compRules.find(r => r.state === compState);
+      if (cr) {
+        if (!suspicion) {
+          suspicion = cr.suspicion;
+          step = cr.step;
+        } else {
+          step = `${step}; ${cr.step}`;
+        }
+      }
+    }
+
+    // Fallback
+    if (!suspicion) {
+      suspicion = 'Nem sikerült egyértelmű hibagyanút azonosítani';
+      step = 'Mérd meg a nyomásokat, hőmérsékleteket és az áramfelvételt';
+    }
+
+    return { suspicion, step };
+  }, [symptom, compState]);
+
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={() => { console.log('[Diagnosztika] Gyors hibagyanú toggled'); setOpen(o => !o); }} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => { console.log('[Diagnosztika] Gyors hibagyanú toggled'); setOpen(o => !o); }}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeaderLeft}>
           <Search size={20} color={HVAC_RED} />
           <Text style={styles.cardTitle}>Gyors hibagyanú</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
+
       {open && (
         <View style={styles.cardBody}>
           <Text style={styles.label}>Tünet leírása</Text>
-          <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]} value="" onChangeText={() => {}} multiline placeholder="pl. nem hűt, zajos, leáll..." placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+          <TextInput
+            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+            value={symptom}
+            onChangeText={v => { console.log('[Diagnosztika] Gyors hibagyanú tünet input:', v); setSymptom(v); }}
+            multiline
+            placeholder="pl. nem hűt, zajos, leáll..."
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <Text style={styles.label}>Kompresszor állapota</Text>
           <View style={styles.segmentRow}>
-            {['Fut', 'Leáll', 'Nem indul'].map(s => (
-              <TouchableOpacity key={s} style={styles.segmentBtn} activeOpacity={0.7}>
-                <Text style={styles.segmentText}>{s}</Text>
+            {(['Fut', 'Leáll', 'Nem indul'] as const).map(s => (
+              <TouchableOpacity
+                key={s}
+                style={[styles.segmentBtn, compState === s && styles.segmentBtnActive]}
+                onPress={() => { console.log('[Diagnosztika] Kompresszor állapot:', s); setCompState(prev => prev === s ? null : s); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, compState === s && styles.segmentBtnActiveText]}>{s}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.label}>Hibajelzés / hibakód</Text>
-          <TextInput style={styles.input} value="" onChangeText={() => {}} placeholder="pl. E1, F3, vagy nincs" placeholderTextColor={HVAC_TEXT_SECONDARY} editable={false} />
+
+          <Text style={styles.label}>Hibajelzés / hibakód – opcionális</Text>
+          <TextInput
+            style={styles.input}
+            value={errorCode}
+            onChangeText={v => { console.log('[Diagnosztika] Hibakód input:', v); setErrorCode(v); }}
+            placeholder="pl. E1, F3, vagy nincs"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <View style={styles.resultBox}>
             <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Valószínű hibagyanú</Text>
-              <Text style={styles.resultValue}>—</Text>
+              <Text style={[styles.resultLabel, { flex: 0.45 }]}>Valószínű hibagyanú</Text>
+              <Text style={[styles.resultValue, { fontSize: 14, flex: 0.55, textAlign: 'right', color: result ? HVAC_YELLOW : HVAC_TEXT_SECONDARY }]}>
+                {result?.suspicion ?? '—'}
+              </Text>
             </View>
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Javasolt lépés</Text>
-              <Text style={styles.resultValue}>—</Text>
+            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
+              <Text style={[styles.resultLabel, { flex: 0.45 }]}>Javasolt első lépés</Text>
+              <Text style={[styles.resultValue, { fontSize: 14, flex: 0.55, textAlign: 'right', color: result ? HVAC_BLUE : HVAC_TEXT_SECONDARY }]}>
+                {result?.step ?? '—'}
+              </Text>
             </View>
           </View>
-          <Text style={styles.noteText}>Diagnosztikai logika hamarosan elérhető.</Text>
+
+          <Text style={styles.noteText}>
+            Az eredmény kulcsszó-alapú becslés, nem helyettesíti a műszeres mérést. Mindig ellenőrizd a nyomásokat és az áramfelvételt.
+          </Text>
         </View>
       )}
     </View>
