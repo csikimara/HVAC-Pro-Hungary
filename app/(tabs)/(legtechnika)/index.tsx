@@ -316,6 +316,8 @@ function PipeSizingTool() {
   const [airflow, setAirflow] = useState('');
   const [airflowUnit, setAirflowUnit] = useState<'m³/h' | 'l/s'>('m³/h');
   const [velocity, setVelocity] = useState('');
+  const [rectWidth, setRectWidth] = useState('');
+  const [rectHeight, setRectHeight] = useState('');
 
   return (
     <View style={styles.card}>
@@ -407,6 +409,29 @@ function PipeSizingTool() {
               <Text style={styles.unitBtnText}>m/s</Text>
             </View>
           </View>
+
+          {shape === 'teglalap' && (
+            <>
+              <Text style={styles.label}>Szélesség a (mm)</Text>
+              <TextInput
+                style={styles.input}
+                value={rectWidth}
+                onChangeText={setRectWidth}
+                keyboardType="numeric"
+                placeholder="pl. 400"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+              <Text style={styles.label}>Magasság b (mm)</Text>
+              <TextInput
+                style={styles.input}
+                value={rectHeight}
+                onChangeText={setRectHeight}
+                keyboardType="numeric"
+                placeholder="pl. 200"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+            </>
+          )}
 
           {/* Static result placeholder */}
           <View style={styles.resultBox}>
