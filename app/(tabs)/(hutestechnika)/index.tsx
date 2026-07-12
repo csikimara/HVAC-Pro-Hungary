@@ -236,54 +236,40 @@ function Nyomaspróba() {
   const [startP, setStartP] = useState('');
   const [endP, setEndP] = useState('');
   const [duration, setDuration] = useState('');
+  const [t1, setT1] = useState('');
+  const [t2, setT2] = useState('');
 
   const UNITS: Array<'bar' | 'kPa' | 'Pa'> = ['bar', 'kPa', 'Pa'];
 
   const result = useMemo(() => {
-    const p1 = parseFloat(startP);
-    const p2 = parseFloat(endP);
-    if (isNaN(p1) || isNaN(p2)) return null;
-    const drop = p1 - p2;
-    const t = parseFloat(duration);
-    const dropPerMin = (!isNaN(t) && t > 0) ? drop / t : null;
+    const p1g = parseFloat(startP);
+    const p2g = parseFloat(endP);
+    const T1c = parseFloat(t1);
+    const T2c = parseFloat(t2);
+    if (isNaN(p1g) || isNaN(p2g) || isNaN(T1c) || isNaN(T2c)) return null;
 
-    // thresholds depend on unit
-    const threshold = unit === 'bar' ? 0.1 : unit === 'kPa' ? 10 : 10000;
-    let status: string;
-    let statusColor: string;
-    if (drop < 0) {
-      status = 'Negatív esés – hőmérséklet-hatás vagy mérési hiba';
-      statusColor = HVAC_YELLOW;
-    } else if (drop <= threshold * 0.05) {
-      status = 'Tartja';
-      statusColor = HVAC_GREEN;
-    } else if (drop <= threshold) {
-      status = 'Ellenőrizendő';
-      statusColor = HVAC_YELLOW;
-    } else {
-      status = 'Nem tartja';
-      statusColor = HVAC_RED;
-    }
+    // atmospheric offset in the current unit
+    const atm = unit === 'bar' ? 1 : unit === 'kPa' ? 100 : 100000;
 
-    const dropFormatted = unit === 'bar'
-      ? drop.toFixed(3)
-      : unit === 'kPa'
-        ? drop.toFixed(1)
-        : Math.round(drop).toString();
-    const dropPerMinFormatted = dropPerMin !== null
-      ? unit === 'bar'
-        ? dropPerMin.toFixed(4)
-        : unit === 'kPa'
-          ? dropPerMin.toFixed(2)
-          : dropPerMin.toFixed(1)
-      : null;
+    const p1abs = p1g + atm;
+    const p2abs = p2g + atm;
+    const T1K = T1c + 273.15;
+    const T2K = T2c + 273.15;
+
+    const p2TheoAbs = p1abs * (T2K / T1K);
+    const p2TheoGauge = p2TheoAbs - atm;
+    const deltaP = p2TheoGauge - p2g;
+
+    // Format helpers
+    const fmt = (v: number) =>
+      unit === 'bar' ? v.toFixed(3) : unit === 'kPa' ? v.toFixed(1) : Math.round(v).toString();
+
     return {
-      drop: dropFormatted,
-      dropPerMin: dropPerMinFormatted,
-      status,
-      statusColor,
+      p2Theo: fmt(p2TheoGauge),
+      deltaP: fmt(deltaP),
+      deltaPRaw: deltaP,
     };
-  }, [startP, endP, duration, unit]);
+  }, [startP, endP, t1, t2, unit]);
 
   return (
     <View style={styles.card}>
@@ -335,6 +321,26 @@ function Nyomaspróba() {
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
+          <Text style={styles.label}>Kezdeti hőmérséklet T₁ (°C)</Text>
+          <TextInput
+            style={styles.inputLarge}
+            value={t1}
+            onChangeText={v => { console.log('[Hűtéstechnika] T1 input:', v); setT1(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 20"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
+          <Text style={styles.label}>Végső hőmérséklet T₂ (°C)</Text>
+          <TextInput
+            style={styles.inputLarge}
+            value={t2}
+            onChangeText={v => { console.log('[Hűtéstechnika] T2 input:', v); setT2(v); }}
+            keyboardType="numeric"
+            placeholder="pl. 22"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <Text style={styles.label}>Eltelt idő (perc) – opcionális</Text>
           <TextInput
             style={styles.inputLarge}
@@ -346,13 +352,12 @@ function Nyomaspróba() {
           />
 
           <View style={styles.resultBox}>
-            <ResultRow label="Nyomásesés" value={result?.drop ?? '—'} unit={result ? unit : undefined} />
-            <ResultRow label="Nyomásesés/perc" value={result?.dropPerMin ?? '—'} unit={result?.dropPerMin ? `${unit}/perc` : undefined} />
-            <ResultRow label="Értékelés" value={result?.status ?? '—'} highlight={result?.statusColor} />
+            <ResultRow label="Elméleti végnyomás (hőm.-korr.)" value={result?.p2Theo ?? '—'} unit={result ? unit : undefined} />
+            <ResultRow label="Eltérés (mért – elméleti)" value={result?.deltaP ?? '—'} unit={result ? unit : undefined} highlight={result ? (Math.abs(result.deltaPRaw) < (unit === 'bar' ? 0.05 : unit === 'kPa' ? 5 : 5000) ? HVAC_GREEN : HVAC_YELLOW) : undefined} />
           </View>
 
           <Text style={styles.noteText}>
-            A hőmérséklet-változás befolyásolhatja az eredményt – stabil körülmények között mérj.
+            Csak hőmérséklet-korrigált ellenőrzés, nem minősül hivatalos nyomáspróbának.
           </Text>
         </View>
       )}
