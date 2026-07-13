@@ -28,7 +28,9 @@ type Branch = {
   name: string;
   airflow: string;
   length: string;
+  ductType: 'spiral' | 'sonodek';
   ductSize: string;
+  sonodekDiam: SonodekDiameter;
   fittings: string;
 };
 
@@ -50,6 +52,9 @@ const BRANCH_FITTINGS: { label: string; K: number }[] = [
   { label: 'Visszacsapó szelep',     K: 2.5  },
 ];
 
+const SONODEK_DIAMETERS = [100, 125, 150, 160, 200] as const;
+type SonodekDiameter = typeof SONODEK_DIAMETERS[number];
+
 type BranchResult = {
   velocity: number;       // m/s
   straightDrop: number;   // Pa — Darcy-Weisbach over length
@@ -61,7 +66,9 @@ type BranchResult = {
 
 function calcBranch(branch: Branch): BranchResult | null {
   const Q_raw = parseFloat(branch.airflow);
-  const D_raw = parseFloat(branch.ductSize);
+  const D_raw = branch.ductType === 'sonodek'
+    ? branch.sonodekDiam
+    : parseFloat(branch.ductSize);
   const L_raw = parseFloat(branch.length);
   const K_raw = parseFloat(branch.fittings);
 
@@ -483,8 +490,8 @@ function BranchCard({ branch, onUpdate, onDelete, onDuplicate }: {
 }) {
   const [open, setOpen] = useState(true);
 
-  function update(field: keyof Branch, value: string) {
-    onUpdate({ ...branch, [field]: value });
+  function update(field: keyof Branch, value: string | 'spiral' | 'sonodek') {
+    onUpdate({ ...branch, [field]: value } as Branch);
   }
 
   return (
@@ -554,15 +561,87 @@ function BranchCard({ branch, onUpdate, onDelete, onDuplicate }: {
             placeholder="pl. 5"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
-          <Text style={styles.label}>Csatorna Ø (mm)</Text>
-          <TextInput
-            style={styles.input}
-            value={branch.ductSize}
-            onChangeText={v => update('ductSize', v)}
-            keyboardType="numeric"
-            placeholder="pl. 160"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
+          {/* Duct type toggle */}
+          <Text style={styles.label}>Csatorna típusa</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            {(['spiral', 'sonodek'] as const).map(dt => {
+              const active = branch.ductType === dt;
+              const label = dt === 'spiral' ? 'Spirál' : 'SONODEK / SONODEC';
+              return (
+                <TouchableOpacity
+                  key={dt}
+                  onPress={() => {
+                    console.log('[Légelosztás] Csatorna típus kiválasztva:', dt, 'ág id:', branch.id);
+                    update('ductType', dt);
+                  }}
+                  activeOpacity={0.7}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 10,
+                    borderRadius: 10,
+                    borderWidth: 1.5,
+                    borderColor: active ? HVAC_BLUE : HVAC_BORDER,
+                    backgroundColor: active ? HVAC_BLUE + '22' : HVAC_SURFACE,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: active ? HVAC_BLUE : HVAC_TEXT_SECONDARY }}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Diameter — free text for spiral, fixed picker for SONODEK */}
+          {branch.ductType === 'sonodek' ? (
+            <>
+              <Text style={styles.label}>SONODEK Ø (mm)</Text>
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+                {SONODEK_DIAMETERS.map(d => {
+                  const active = branch.sonodekDiam === d;
+                  return (
+                    <TouchableOpacity
+                      key={d}
+                      onPress={() => {
+                        console.log('[Légelosztás] SONODEK átmérő kiválasztva:', d, 'ág id:', branch.id);
+                        onUpdate({ ...branch, sonodekDiam: d });
+                      }}
+                      activeOpacity={0.7}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 10,
+                        borderRadius: 10,
+                        borderWidth: 1.5,
+                        borderColor: active ? HVAC_BLUE : HVAC_BORDER,
+                        backgroundColor: active ? HVAC_BLUE + '22' : HVAC_SURFACE,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: active ? HVAC_BLUE : HVAC_TEXT_SECONDARY }}>
+                        {d}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={[styles.noteText, { marginTop: 0, marginBottom: 12 }]}>
+                Szigetelt flexibilis cső – rögzített méretek: 100, 125, 150, 160, 200 mm
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.label}>Csatorna Ø (mm)</Text>
+              <TextInput
+                style={styles.input}
+                value={branch.ductSize}
+                onChangeText={v => update('ductSize', v)}
+                keyboardType="numeric"
+                placeholder="pl. 160"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+            </>
+          )}
           <Text style={styles.label}>Idomok</Text>
           <FittingsHelper
             value={branch.fittings}
@@ -781,7 +860,9 @@ export default function LegelosztasScreen() {
       name: newName,
       airflow: '',
       length: '',
+      ductType: 'spiral',
       ductSize: '',
+      sonodekDiam: 160,
       fittings: '',
     }]);
   }
