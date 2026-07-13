@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Pipette, Ruler, TrendingDown, Wind } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Pipette, Ruler, TrendingDown, Wind, Home } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
@@ -789,17 +789,16 @@ function ResultRow({ label, value, unit, highlight }: { label: string; value: st
 export default function LegtechnikaScreen() {
   const router = useRouter();
   const backBtn = {
-    flexDirection: 'row' as const,
+    position: 'absolute' as const,
+    top: 20,
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center' as const,
-    gap: 4,
-    marginBottom: 16,
-    marginTop: 24,
-    alignSelf: 'flex-start' as const,
-  };
-  const backBtnText = {
-    fontSize: 13,
-    color: HVAC_BLUE,
-    fontWeight: '500' as const,
+    justifyContent: 'center' as const,
+    zIndex: 10,
   };
   return (
     <View style={styles.flex}>
@@ -812,14 +811,11 @@ export default function LegtechnikaScreen() {
       >
         <TouchableOpacity
           style={backBtn}
-          onPress={() => {
-            console.log('[Légtechnika] Vissza a kezdőlapra');
-            router.push('/(tabs)/(home)');
-          }}
+          onPress={() => router.push('/(tabs)/(home)')}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <ChevronLeft size={16} color={HVAC_BLUE} />
-          <Text style={backBtnText}>Vissza a kezdőlapra</Text>
+          <Home size={22} color="#60A5FA" />
         </TouchableOpacity>
         <Text style={styles.screenTitle}>Légtechnika</Text>
         <DuctSizingTool />

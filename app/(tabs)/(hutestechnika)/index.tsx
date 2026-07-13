@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ChevronDown, ChevronUp, ChevronLeft, Zap, Gauge, FlaskConical, Table2, Thermometer, Activity, Ruler, Wind, Layers, Plus, Trash2 } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ChevronLeft, Zap, Gauge, FlaskConical, Table2, Thermometer, Activity, Ruler, Wind, Layers, Plus, Trash2, Home } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
@@ -1283,14 +1283,17 @@ export default function HutestechnikaScreen() {
   const router = useRouter();
 
   const backBtn = {
-    flexDirection: 'row' as const,
+    position: 'absolute' as const,
+    top: 20,
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center' as const,
-    gap: 4,
-    marginBottom: 16,
-    marginTop: 24,
-    alignSelf: 'flex-start' as const,
+    justifyContent: 'center' as const,
+    zIndex: 10,
   };
-  const backBtnText = { fontSize: 13, color: HVAC_BLUE, fontWeight: '500' as const };
 
   return (
     <View style={styles.flex}>
@@ -1301,9 +1304,13 @@ export default function HutestechnikaScreen() {
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets={true}
       >
-        <TouchableOpacity style={backBtn} onPress={() => { console.log('[Hűtéstechnika] Back to home pressed'); router.push('/(tabs)/(home)'); }} activeOpacity={0.7}>
-          <ChevronLeft size={16} color={HVAC_BLUE} />
-          <Text style={backBtnText}>Vissza a kezdőlapra</Text>
+        <TouchableOpacity
+          style={backBtn}
+          onPress={() => router.push('/(tabs)/(home)')}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Home size={22} color="#60A5FA" />
         </TouchableOpacity>
 
         <Text style={styles.screenTitle}>Hűtéstechnika</Text>
