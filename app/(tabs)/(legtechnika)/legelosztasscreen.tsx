@@ -813,7 +813,7 @@ export default function LegelosztasScreen() {
   const backBtn = {
     position: 'absolute' as const,
     top: 20,
-    left: 16,
+    right: 16,
     width: 44,
     height: 44,
     borderRadius: 22,
