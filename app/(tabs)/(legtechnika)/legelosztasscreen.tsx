@@ -38,6 +38,8 @@ type Branch = {
 
 const RHO = 1.2;   // kg/m³ air density
 const LAMBDA = 0.02; // default friction factor
+const NU = 15.11e-6; // m²/s — kinematic viscosity of air at 20 °C
+const EPS_FLEX = 0.002; // m — effective roughness for insulated flexible duct (2.0 mm)
 
 const BRANCH_FITTINGS: { label: string; K: number }[] = [
   { label: 'Könyök 90° (R/D=1)',    K: 0.3  },
@@ -62,7 +64,24 @@ type BranchResult = {
   totalDrop: number;      // Pa — straight + fitting
   velocityColor: string;
   dropColor: string;
+  lambda?: number;        // only set for SONODEK branches
 };
+
+/** Iterative Colebrook-White solver — returns Darcy friction factor λ.
+ *  Uses 8 iterations of the explicit Swamee-Jain seed for fast convergence.
+ *  Valid for Re > 4000 (turbulent). Falls back to laminar (64/Re) below 2300.
+ */
+function colebrookLambda(Re: number, D: number, eps: number): number {
+  if (Re < 2300) return 64 / Re;                        // laminar
+  // Swamee-Jain explicit approximation as seed
+  let lam = 0.25 / Math.pow(Math.log10(eps / (3.7 * D) + 5.74 / Math.pow(Re, 0.9)), 2);
+  // 8 Newton-Raphson / fixed-point iterations
+  for (let i = 0; i < 8; i++) {
+    const rhs = -2 * Math.log10(eps / (3.7 * D) + 2.51 / (Re * Math.sqrt(lam)));
+    lam = 1 / (rhs * rhs);
+  }
+  return lam;
+}
 
 function calcBranch(branch: Branch): BranchResult | null {
   const Q_raw = parseFloat(branch.airflow);
@@ -75,16 +94,30 @@ function calcBranch(branch: Branch): BranchResult | null {
   if (isNaN(Q_raw) || Q_raw <= 0) return null;
   if (isNaN(D_raw) || D_raw <= 0) return null;
 
-  const Q = Q_raw / 3600;                          // m³/s
-  const D = D_raw / 1000;                          // m
-  const area = Math.PI * Math.pow(D, 2) / 4;      // m²
-  const v = Q / area;                              // m/s
+  const Q = Q_raw / 3600;                         // m³/s
+  const D = D_raw / 1000;                         // m
+  const area = Math.PI * D * D / 4;              // m²
+  const v = Q / area;                             // m/s
 
   const L = isNaN(L_raw) || L_raw <= 0 ? 0 : L_raw;
   const K = isNaN(K_raw) || K_raw < 0 ? 0 : K_raw;
 
-  const dynP = 0.5 * RHO * Math.pow(v, 2);        // Pa dynamic pressure
-  const R = LAMBDA * RHO * Math.pow(v, 2) / (2 * D); // Pa/m specific drop
+  const dynP = 0.5 * RHO * v * v;               // Pa
+
+  let lam: number;
+  let lambda: number | undefined;
+
+  if (branch.ductType === 'sonodek') {
+    // Flexible insulated duct: Colebrook-White with ε = 2.0 mm
+    const Re = v * D / NU;
+    lam = colebrookLambda(Re, D, EPS_FLEX);
+    lambda = lam;
+  } else {
+    // Rigid spiral duct: fixed friction factor
+    lam = LAMBDA;
+  }
+
+  const R = lam * RHO * v * v / (2 * D);        // Pa/m
   const straightDrop = R * L;
   const fittingDrop = K * dynP;
   const totalDrop = straightDrop + fittingDrop;
@@ -92,7 +125,7 @@ function calcBranch(branch: Branch): BranchResult | null {
   const velocityColor = v <= 3.5 ? HVAC_GREEN : v <= 5 ? HVAC_YELLOW : HVAC_RED;
   const dropColor = totalDrop <= 30 ? HVAC_GREEN : totalDrop <= 60 ? HVAC_YELLOW : HVAC_RED;
 
-  return { velocity: v, straightDrop, fittingDrop, totalDrop, velocityColor, dropColor };
+  return { velocity: v, straightDrop, fittingDrop, totalDrop, velocityColor, dropColor, lambda };
 }
 
 // ─── Unit Header Card ─────────────────────────────────────────────────────────
@@ -670,6 +703,12 @@ function BranchCard({ branch, onUpdate, onDelete, onDuplicate }: {
                     {r ? `${r.fittingDrop.toFixed(1)} Pa` : '—'}
                   </Text>
                 </View>
+                {r?.lambda !== undefined && (
+                  <View style={styles.resultRow}>
+                    <Text style={styles.resultLabel}>Súrlódási tényező λ</Text>
+                    <Text style={styles.resultValue}>{r.lambda.toFixed(4)}</Text>
+                  </View>
+                )}
                 <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 10, marginTop: 2 }]}>
                   <Text style={[styles.resultLabel, { fontWeight: '600', color: HVAC_TEXT }]}>Ág nyomásesése</Text>
                   <Text style={[styles.resultValue, { color: r ? r.dropColor : HVAC_TEXT_SECONDARY }]}>
