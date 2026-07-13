@@ -23,6 +23,7 @@ const HVAC_RED = '#EF4444';
 
 const STANDARD_DIAMETERS = [80, 100, 125, 150, 160, 200, 250, 315, 355, 400, 450, 500, 560, 630];
 const STANDARD_DUCT_DIAMETERS = [80, 100, 125, 150, 160, 200, 250, 315, 355, 400, 450, 500, 560, 630];
+const SONODEK_DIAMETERS = [100, 125, 150, 160, 200] as const;
 
 const FITTINGS: { label: string; K: number }[] = [
   { label: 'Könyök 90° (R/D=1)', K: 0.3 },
@@ -230,6 +231,8 @@ function DuctSizingTool() {
 
 function PressureDropTool() {
   const [open, setOpen] = useState(true);
+  const [ductMaterial, setDuctMaterial] = useState<'spiral' | 'sonodek'>('spiral');
+  const [sonodekDiam, setSonodekDiam] = useState<number>(160);
   const [airflow, setAirflow] = useState('');
   const [airflowUnit, setAirflowUnit] = useState<'m³/h' | 'l/s'>('m³/h');
   const [ductLength, setDuctLength] = useState('');
@@ -253,14 +256,16 @@ function PressureDropTool() {
       ? null
       : lengthUnit === 'm' ? L_raw : L_raw / 1000; // m
 
-    const lambdaInput = parseFloat(roughness);
-    const lambda = !isNaN(lambdaInput) && lambdaInput > 0 ? lambdaInput : 0.02;
     const rho = 1.2;
 
     let area: number;
     let D_h: number; // hydraulic diameter in metres for Darcy-Weisbach
 
-    if (ductShape === 'kor') {
+    if (ductMaterial === 'sonodek') {
+      const D_flex = sonodekDiam / 1000;
+      area = Math.PI * Math.pow(D_flex, 2) / 4;
+      D_h = D_flex;
+    } else if (ductShape === 'kor') {
       const D_raw = parseFloat(ductSize);
       if (isNaN(D_raw) || D_raw <= 0) return null;
       const D = sizeUnit === 'mm' ? D_raw / 1000 : D_raw / 100;
@@ -277,6 +282,24 @@ function PressureDropTool() {
     }
 
     const v = Q / area;
+
+    let lambda: number;
+    if (ductMaterial === 'sonodek') {
+      const D_flex = sonodekDiam / 1000;
+      const eps = 0.002; // 2.0 mm in metres
+      const nu = 1.5e-5;
+      const Re = v * D_flex / nu;
+      // Colebrook-White, 5 iterations
+      let lam = 0.04;
+      for (let i = 0; i < 5; i++) {
+        lam = 1 / Math.pow(-2 * Math.log10(eps / (3.7 * D_flex) + 2.51 / (Re * Math.sqrt(lam))), 2);
+      }
+      lambda = lam;
+    } else {
+      const lambdaInput = parseFloat(roughness);
+      lambda = !isNaN(lambdaInput) && lambdaInput > 0 ? lambdaInput : 0.02;
+    }
+
     const R = lambda * (rho * Math.pow(v, 2)) / (2 * D_h);
     const deltaP = L !== null ? R * L : null;
 
@@ -298,8 +321,9 @@ function PressureDropTool() {
       specificColor: rColor,
       fittingLoss: fittingLoss !== null ? fittingLoss.toFixed(2) : null,
       totalLoss: totalLoss !== null ? totalLoss.toFixed(2) : null,
+      lambdaDisplay: ductMaterial === 'sonodek' ? lambda.toFixed(4) : null,
     };
-  }, [airflow, airflowUnit, ductSize, sizeUnit, ductLength, lengthUnit, roughness, ductShape, rectWidth, rectHeight, selectedFittings]);
+  }, [airflow, airflowUnit, ductSize, sizeUnit, ductLength, lengthUnit, roughness, ductShape, rectWidth, rectHeight, selectedFittings, ductMaterial, sonodekDiam]);
 
   return (
     <View style={styles.card}>
@@ -320,23 +344,45 @@ function PressureDropTool() {
 
       {open && (
         <View style={styles.cardBody}>
+          {/* Material selector */}
           <View style={styles.segmentRow}>
-            {(['kor', 'teglalap'] as const).map(s => (
+            {(['spiral', 'sonodek'] as const).map(m => (
               <TouchableOpacity
-                key={s}
-                style={[styles.segmentBtn, ductShape === s && styles.segmentBtnActive]}
+                key={m}
+                style={[styles.segmentBtn, ductMaterial === m && styles.segmentBtnActive]}
                 onPress={() => {
-                  console.log('[Légtechnika] Nyomásesés alakzat:', s);
-                  setDuctShape(s);
+                  console.log('[Légtechnika] Nyomásesés anyag:', m);
+                  setDuctMaterial(m);
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.segmentText, ductShape === s && styles.segmentTextActive]}>
-                  {s === 'kor' ? 'Kör' : 'Téglalap'}
+                <Text style={[styles.segmentText, ductMaterial === m && styles.segmentTextActive]}>
+                  {m === 'spiral' ? 'Spirál' : 'SONODEK'}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
+
+          {/* Shape selector — only for spiral */}
+          {ductMaterial === 'spiral' && (
+            <View style={styles.segmentRow}>
+              {(['kor', 'teglalap'] as const).map(s => (
+                <TouchableOpacity
+                  key={s}
+                  style={[styles.segmentBtn, ductShape === s && styles.segmentBtnActive]}
+                  onPress={() => {
+                    console.log('[Légtechnika] Nyomásesés alakzat:', s);
+                    setDuctShape(s);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.segmentText, ductShape === s && styles.segmentTextActive]}>
+                    {s === 'kor' ? 'Kör' : 'Téglalap'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Légmennyiség */}
           <Text style={styles.label}>Légmennyiség</Text>
@@ -406,8 +452,8 @@ function PressureDropTool() {
             })}
           </View>
 
-          {/* Csatorna Ø */}
-          {ductShape === 'kor' && (
+          {/* Csatorna Ø — spiral only */}
+          {ductMaterial === 'spiral' && ductShape === 'kor' && (
             <>
               <Text style={styles.label}>Csatorna Ø</Text>
               <View style={styles.inputRow}>
@@ -444,7 +490,7 @@ function PressureDropTool() {
             </>
           )}
 
-          {ductShape === 'teglalap' && (
+          {ductMaterial === 'spiral' && ductShape === 'teglalap' && (
             <>
               <Text style={styles.label}>Szélesség (mm)</Text>
               <TextInput
@@ -473,18 +519,49 @@ function PressureDropTool() {
             </>
           )}
 
-          {/* Súrlódási tényező λ */}
-          <Text style={styles.label}>Súrlódási tényező λ</Text>
-          <TextInput
-            style={styles.input}
-            value={roughness}
-            onChangeText={text => {
-              console.log('[Légtechnika] Nyomásesés érdesség input:', text);
-              setRoughness(text);
-            }}
-            placeholder="alapért. 0,02"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
+          {/* SONODEK fixed diameter picker */}
+          {ductMaterial === 'sonodek' && (
+            <>
+              <Text style={styles.label}>Névleges átmérő</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                {SONODEK_DIAMETERS.map(d => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[styles.segmentBtn, sonodekDiam === d && styles.segmentBtnActive]}
+                    onPress={() => {
+                      console.log('[Légtechnika] SONODEK átmérő kiválasztva:', d, 'mm');
+                      setSonodekDiam(d);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.segmentText, sonodekDiam === d && styles.segmentTextActive]}>
+                      {d}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={[styles.noteText, { marginTop: 0, marginBottom: 12 }]}>
+                SONODEK: ε = 2,0 mm (szigetelt flexibilis cső)
+              </Text>
+            </>
+          )}
+
+          {/* Súrlódási tényező λ — spiral only */}
+          {ductMaterial === 'spiral' && (
+            <>
+              <Text style={styles.label}>Súrlódási tényező λ</Text>
+              <TextInput
+                style={styles.input}
+                value={roughness}
+                onChangeText={text => {
+                  console.log('[Légtechnika] Nyomásesés érdesség input:', text);
+                  setRoughness(text);
+                }}
+                placeholder="alapért. 0,02"
+                placeholderTextColor={HVAC_TEXT_SECONDARY}
+              />
+            </>
+          )}
 
           {/* Idomveszteségek */}
           <TouchableOpacity
@@ -547,6 +624,9 @@ function PressureDropTool() {
 
           <View style={styles.resultBox}>
             <ResultRow label="Légsebesség" value={result?.velocity ?? '—'} unit="m/s" highlight={result?.velocityColor} />
+            {ductMaterial === 'sonodek' && (
+              <ResultRow label="Számított λ (SONODEK)" value={result?.lambdaDisplay ?? '—'} unit="" />
+            )}
             <ResultRow label="Fajlagos nyomásesés" value={result?.specificDrop ?? '—'} unit="Pa/m" highlight={result?.specificColor} />
             <ResultRow label="Egyenes szakasz" value={result?.pressureDrop ?? '—'} unit="Pa" />
             <ResultRow label="Idomveszteség" value={result?.fittingLoss ?? '—'} unit="Pa" highlight={result?.fittingLoss ? HVAC_YELLOW : undefined} />
