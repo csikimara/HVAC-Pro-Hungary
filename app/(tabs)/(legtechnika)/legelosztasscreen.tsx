@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ChevronLeft, ChevronDown, ChevronUp, Wind, Plus, Minus, Trash2, Copy, AlertCircle } from 'lucide-react-native';
+import { Home, ChevronDown, ChevronUp, Wind, Plus, Minus, Trash2, Copy, AlertCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 const HVAC_BG = '#0D0F12';
@@ -811,16 +811,16 @@ export default function LegelosztasScreen() {
   }
 
   const backBtn = {
-    flexDirection: 'row' as const,
+    position: 'absolute' as const,
+    top: 20,
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center' as const,
-    gap: 4,
-    marginBottom: 16,
-    alignSelf: 'flex-start' as const,
-  };
-  const backBtnText = {
-    fontSize: 13,
-    color: HVAC_BLUE,
-    fontWeight: '500' as const,
+    justifyContent: 'center' as const,
+    zIndex: 10,
   };
 
   const hasBranches = branches.length > 0;
@@ -836,14 +836,11 @@ export default function LegelosztasScreen() {
       >
         <TouchableOpacity
           style={backBtn}
-          onPress={() => {
-            console.log('[Légelosztás] Vissza gomb megnyomva');
-            router.back();
-          }}
+          onPress={() => router.push('/(tabs)/(home)')}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <ChevronLeft size={16} color={HVAC_BLUE} />
-          <Text style={backBtnText}>Vissza</Text>
+          <Home size={22} color="#60A5FA" />
         </TouchableOpacity>
 
         <Text style={styles.screenTitle}>Légelosztás</Text>
