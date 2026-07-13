@@ -33,6 +33,8 @@ type Branch = {
   sonodekDiam: SonodekDiameter;
   fittings: string;
   slotDiffuser: SlotDiffuserId | null;   // null = no slot diffuser
+  airValveType: AirValveType | null;    // null = no air valve
+  airValveSize: AirValveSize;           // always set, default 160
 };
 
 // ─── Branch Calculation ───────────────────────────────────────────────────────
@@ -99,12 +101,48 @@ function calcSlotDrop(Q_m3h: number, diffuser: SlotDiffuser): number {
   return K_SLOT * 0.5 * RHO * v * v;                        // Pa
 }
 
+// ─── Air Valve Data ───────────────────────────────────────────────────────────
+
+type AirValveSize = 100 | 125 | 150 | 160 | 200 | 250;
+type AirValveType = 'supply' | 'exhaust';
+
+type AirValve = {
+  size: AirValveSize;   // nominal diameter mm
+};
+
+const AIR_VALVE_SIZES: AirValveSize[] = [100, 125, 150, 160, 200, 250];
+
+/**
+ * Air valve pressure drop — Darcy-Weisbach through the valve neck.
+ *
+ * Model: ΔP = K_valve × ½ρv_neck²
+ *   where v_neck = Q / A_neck  (circular neck, diameter = size)
+ *         K_supply  = 3.0  — supply cone valve (slightly higher resistance, directed throw)
+ *         K_exhaust = 2.5  — exhaust cone valve (lower resistance, free extraction)
+ *
+ * Gives ~15–60 Pa at typical per-valve flows (30–150 m³/h), consistent with
+ * Trox TVZ/TVA and similar cone valve manufacturer data.
+ */
+const K_VALVE_SUPPLY  = 3.0;
+const K_VALVE_EXHAUST = 2.5;
+
+function calcValveDrop(Q_m3h: number, size: AirValveSize, type: AirValveType): number {
+  if (Q_m3h <= 0) return 0;
+  const Q = Q_m3h / 3600;                          // m³/s
+  const D = size / 1000;                           // m
+  const A = Math.PI * D * D / 4;                  // m²
+  const v = Q / A;                                 // m/s neck velocity
+  const K = type === 'supply' ? K_VALVE_SUPPLY : K_VALVE_EXHAUST;
+  return K * 0.5 * RHO * v * v;                   // Pa
+}
+
 type BranchResult = {
   velocity: number;       // m/s
   straightDrop: number;   // Pa — Darcy-Weisbach over length
   fittingDrop: number;    // Pa — ΣK × ½ρv²
   diffuserDrop: number;   // Pa — slot diffuser loss (0 if none selected)
-  totalDrop: number;      // Pa — straight + fitting + diffuser
+  valveDrop: number;      // Pa — air valve loss (0 if none selected)
+  totalDrop: number;      // Pa — straight + fitting + diffuser + valve
   velocityColor: string;
   dropColor: string;
   lambda?: number;        // only set for SONODEK branches
@@ -170,12 +208,16 @@ function calcBranch(branch: Branch): BranchResult | null {
     : null;
   const diffuserDrop = selectedDiffuser ? calcSlotDrop(Q_raw_for_diffuser, selectedDiffuser) : 0;
 
-  const totalDrop = straightDrop + fittingDrop + diffuserDrop;
+  const valveDrop = branch.airValveType
+    ? calcValveDrop(Q_raw, branch.airValveSize, branch.airValveType)
+    : 0;
+
+  const totalDrop = straightDrop + fittingDrop + diffuserDrop + valveDrop;
 
   const velocityColor = v <= 3.5 ? HVAC_GREEN : v <= 5 ? HVAC_YELLOW : HVAC_RED;
   const dropColor = totalDrop <= 30 ? HVAC_GREEN : totalDrop <= 60 ? HVAC_YELLOW : HVAC_RED;
 
-  return { velocity: v, straightDrop, fittingDrop, diffuserDrop, totalDrop, velocityColor, dropColor, lambda };
+  return { velocity: v, straightDrop, fittingDrop, diffuserDrop, valveDrop, totalDrop, velocityColor, dropColor, lambda };
 }
 
 // ─── Unit Header Card ─────────────────────────────────────────────────────────
@@ -769,6 +811,69 @@ function BranchCard({ branch, onUpdate, onDelete, onDuplicate }: {
             })}
           </View>
 
+          {/* Air valve selector */}
+          <Text style={[styles.label, { marginTop: 4 }]}>Légbevezető / elszívó szelep (opcionális)</Text>
+          {/* Type toggle: Nincs / Befúvó / Elszívó */}
+          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+            {([null, 'supply', 'exhaust'] as (AirValveType | null)[]).map(vt => {
+              const active = branch.airValveType === vt;
+              const label = vt === null ? 'Nincs' : vt === 'supply' ? 'Befúvó' : 'Elszívó';
+              return (
+                <TouchableOpacity
+                  key={String(vt)}
+                  onPress={() => {
+                    console.log('[Légelosztás] Légbevezető/elszívó szelep típus kiválasztva:', vt, 'ág id:', branch.id);
+                    onUpdate({ ...branch, airValveType: vt });
+                  }}
+                  activeOpacity={0.7}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 9,
+                    borderRadius: 10,
+                    borderWidth: 1.5,
+                    borderColor: active ? HVAC_BLUE : HVAC_BORDER,
+                    backgroundColor: active ? HVAC_BLUE + '22' : HVAC_SURFACE,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: active ? HVAC_BLUE : HVAC_TEXT_SECONDARY }}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {/* Size picker — only shown when a valve type is selected */}
+          {branch.airValveType !== null && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+              {AIR_VALVE_SIZES.map(sz => {
+                const active = branch.airValveSize === sz;
+                return (
+                  <TouchableOpacity
+                    key={sz}
+                    onPress={() => {
+                      console.log('[Légelosztás] Szelep méret kiválasztva:', sz, 'ág id:', branch.id);
+                      onUpdate({ ...branch, airValveSize: sz });
+                    }}
+                    activeOpacity={0.7}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderColor: active ? HVAC_BLUE : HVAC_BORDER,
+                      backgroundColor: active ? HVAC_BLUE + '22' : HVAC_SURFACE,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: active ? HVAC_BLUE : HVAC_TEXT_SECONDARY }}>
+                      Ø{sz}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
           {(() => {
             const r = calcBranch(branch);
             return (
@@ -795,6 +900,12 @@ function BranchCard({ branch, onUpdate, onDelete, onDuplicate }: {
                   <View style={styles.resultRow}>
                     <Text style={styles.resultLabel}>Rés-diffúzor veszteség</Text>
                     <Text style={styles.resultValue}>{r.diffuserDrop.toFixed(1)} Pa</Text>
+                  </View>
+                )}
+                {r && r.valveDrop > 0 && (
+                  <View style={styles.resultRow}>
+                    <Text style={styles.resultLabel}>Szelep veszteség</Text>
+                    <Text style={styles.resultValue}>{r.valveDrop.toFixed(1)} Pa</Text>
                   </View>
                 )}
                 {r?.lambda !== undefined && (
@@ -994,6 +1105,8 @@ export default function LegelosztasScreen() {
       sonodekDiam: 160,
       fittings: '',
       slotDiffuser: null,
+      airValveType: null,
+      airValveSize: 160,
     }]);
   }
 
