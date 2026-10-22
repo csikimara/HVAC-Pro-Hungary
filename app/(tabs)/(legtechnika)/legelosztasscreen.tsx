@@ -87,8 +87,8 @@ const SLOT_DIFFUSERS: SlotDiffuser[] = [
  *         A_slot = rows × lengthM × slotWidth  (slotWidth = 0.012 m per row, typical 12 mm slot)
  *         K_slot = 2.5  (empirical loss coefficient for a single-slot linear diffuser at design flow)
  *
- * This gives ~15–40 Pa at typical HVAC flows (50–300 m³/h), consistent with
- * manufacturer data for Trox, Halton, and similar slot diffusers.
+ * Generic geometry-based estimate only. It must not be presented as a manufacturer value.
+ * A selected and verified product curve takes precedence.
  */
 const SLOT_WIDTH = 0.012;  // m — slot opening width per row
 const K_SLOT    = 2.5;     // loss coefficient
@@ -120,8 +120,8 @@ const AIR_VALVE_SIZES: AirValveSize[] = [100, 125, 150, 160, 200, 250];
  *         K_supply  = 3.0  — supply cone valve (slightly higher resistance, directed throw)
  *         K_exhaust = 2.5  — exhaust cone valve (lower resistance, free extraction)
  *
- * Gives ~15–60 Pa at typical per-valve flows (30–150 m³/h), consistent with
- * Trox TVZ/TVA and similar cone valve manufacturer data.
+ * Generic geometry-based estimate only. It must not be presented as TROX or any
+ * other manufacturer's product data.
  */
 const K_VALVE_SUPPLY  = 3.0;
 const K_VALVE_EXHAUST = 2.5;
