@@ -8,7 +8,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { ChevronDown, ChevronUp, ChevronLeft, Cpu, AlertTriangle, CheckCircle, XCircle, Gauge, Thermometer, Search, Zap, Home } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ToolGuide } from '@/components/AccuracyNotice';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -840,153 +841,98 @@ function GyorsHibagyanú() {
 // ─── Kompresszor elektromos ellenőrzés ───────────────────────────────────────
 
 function KompresszorElektromosEllenorzes() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [cr, setCr] = useState('');
   const [cs, setCs] = useState('');
   const [rs, setRs] = useState('');
-  const [ground, setGround] = useState('');
+  const [leadResistance, setLeadResistance] = useState('0');
+  const [groundStatus, setGroundStatus] = useState<'not-measured' | 'ol' | 'conductive'>('not-measured');
 
   const result = useMemo(() => {
     const crV = parseFloat(cr);
     const csV = parseFloat(cs);
     const rsV = parseFloat(rs);
-    const gV  = parseFloat(ground);
+    const leadRaw = parseFloat(leadResistance);
+    const lead = !isNaN(leadRaw) && leadRaw >= 0 ? leadRaw : 0;
+    const hasAll = [crV, csV, rsV].every(value => !isNaN(value) && value >= 0);
 
-    const hasCR = !isNaN(crV) && crV >= 0;
-    const hasCS = !isNaN(csV) && csV >= 0;
-    const hasRS = !isNaN(rsV) && rsV >= 0;
-    const hasG  = !isNaN(gV)  && gV  >= 0;
-
-    if (!hasCR && !hasCS && !hasRS && !hasG) return null;
-
-    const issues: string[] = [];
+    if (!hasAll && groundStatus === 'not-measured') return null;
+    const notes: string[] = [];
     const steps: string[] = [];
 
-    // Ground / earth fault check
-    if (hasG) {
-      if (gV < 1) {
-        issues.push('Testzárlat gyanú (kapocs–föld ellenállás nagyon alacsony)');
-        steps.push('Ellenőrizd a kompresszor szigetelését és a kábelt');
-      } else if (gV < 1000) {
-        issues.push('Gyenge szigetelés gyanú (kapocs–föld < 1 MΩ)');
-        steps.push('Mérd meg szigetelési ellenállás-mérővel (megger)');
-      }
+    if (groundStatus === 'conductive') {
+      notes.push('A multiméter vezetést jelez a kapocs és a kompresszorház között');
+      steps.push('Ne helyezd feszültség alá; válaszd le a bekötést, majd ellenőrizd külön a kábelt és a kompresszort');
+    } else if (groundStatus === 'ol') {
+      steps.push('Multiméterrel nem észlelhető testzárlat; ez nem szigetelésvizsgálat');
     }
 
-    // Winding check — sum rule: C-R + C-S ≈ R-S
-    if (hasCR && hasCS && hasRS) {
-      const sumCS = crV + csV;
-      const diff = Math.abs(sumCS - rsV);
-      const tolerance = rsV * 0.15; // 15% tolerance
-      if (rsV < 0.1 || crV < 0.1 || csV < 0.1) {
-        issues.push('Tekercszárlat gyanú (nagyon alacsony ellenállásérték)');
-        steps.push('Ellenőrizd a tekercseket, cseréld ki a kompresszort ha megerősítést nyer');
-      } else if (diff > tolerance) {
-        issues.push('Tekercszárlat vagy szakadás gyanú (C-R + C-S ≠ R-S)');
-        steps.push('Ellenőrizd az egyes tekercsek ellenállását és hasonlítsd össze a névleges értékkel');
+    if (hasAll) {
+      const crCorrected = crV - lead;
+      const csCorrected = csV - lead;
+      const rsCorrected = rsV - lead;
+      if (crCorrected < 0 || csCorrected < 0 || rsCorrected < 0) {
+        notes.push('A mérővezeték-ellenállás nagyobb valamelyik mért értéknél');
+        steps.push('Nullázd a műszert vagy mérd meg újra a mérővezetékek ellenállását');
+      } else {
+        const signedDifference = crCorrected + csCorrected - rsCorrected;
+        notes.push(`Összegeltérés: ${signedDifference >= 0 ? '+' : ''}${signedDifference.toFixed(3)} Ω`);
+        steps.push('Az elfogadhatóságot a műszer pontossága és a kompresszor gyártói tűrése alapján ítéld meg');
       }
     } else {
-      // Individual open-circuit checks
-      if (hasCR && crV > 9999) { issues.push('Szakadás gyanú a C-R tekercsen'); steps.push('Ellenőrizd a C és R kapcsok közötti összeköttetést'); }
-      if (hasCS && csV > 9999) { issues.push('Szakadás gyanú a C-S tekercsen'); steps.push('Ellenőrizd a C és S kapcsok közötti összeköttetést'); }
-      if (hasRS && rsV > 9999) { issues.push('Szakadás gyanú az R-S tekercsen'); steps.push('Ellenőrizd az R és S kapcsok közötti összeköttetést'); }
-    }
-
-    if (issues.length === 0) {
-      return {
-        suspicion: 'Valószínűleg rendben',
-        step: 'Az ellenállásértékek a normál tartományban vannak. Hasonlítsd össze a gyártói adatlappal.',
-        color: HVAC_GREEN,
-      };
+      steps.push('Add meg mindhárom kapocspár ellenállását');
     }
 
     return {
-      suspicion: issues.join('; '),
+      suspicion: notes.join('; ') || 'Nincs automatikusan minősíthető hiba',
       step: steps.join('; '),
-      color: issues.some(i => i.includes('Testzárlat') || i.includes('Tekercszárlat')) ? HVAC_RED : HVAC_YELLOW,
+      color: groundStatus === 'conductive' ? HVAC_RED : HVAC_YELLOW,
     };
-  }, [cr, cs, rs, ground]);
+  }, [cr, cs, rs, leadResistance, groundStatus]);
 
   return (
     <View style={styles.card}>
-      <TouchableOpacity
-        style={styles.cardHeader}
-        onPress={() => { console.log('[Diagnosztika] Kompresszor elektromos ellenőrzés toggled'); setOpen(o => !o); }}
-        activeOpacity={0.7}
-      >
+      <TouchableOpacity style={styles.cardHeader} onPress={() => setOpen(value => !value)} activeOpacity={0.7}>
         <View style={styles.cardHeaderLeft}>
           <Zap size={20} color={HVAC_YELLOW} />
-          <Text style={styles.cardTitle}>Kompresszor elektromos ellenőrzés</Text>
+          <Text style={styles.cardTitle}>Kompresszor C–R–S ellenőrzés</Text>
         </View>
         {open ? <ChevronUp size={18} color={HVAC_TEXT_SECONDARY} /> : <ChevronDown size={18} color={HVAC_TEXT_SECONDARY} />}
       </TouchableOpacity>
 
-      {open && (
-        <View style={styles.cardBody}>
-          <Text style={[styles.noteText, { marginTop: 0 }]}>
-            Add meg a kapcsok közötti ellenállásértékeket (Ω). Mérj áramtalanított állapotban.
-          </Text>
+      {open && <View style={styles.cardBody}>
+        <Text style={[styles.noteText, { marginTop: 0 }]}>Áramtalanított állapotban mérj. Az app önkényes százalékos tűrés nélkül mutatja az összegeltérést.</Text>
+        {[
+          ['C–R üzemi tekercs (Ω)', cr, setCr],
+          ['C–S indítótekercs (Ω)', cs, setCs],
+          ['R–S összes ellenállás (Ω)', rs, setRs],
+        ].map(([label, value, setter]) => <React.Fragment key={label as string}>
+          <Text style={styles.label}>{label as string}</Text>
+          <TextInput style={styles.input} value={value as string} onChangeText={setter as (value: string) => void} keyboardType="numeric" placeholder="pl. 2.5" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+        </React.Fragment>)}
 
-          <Text style={styles.label}>C–R tekercs (Ω)</Text>
-          <TextInput
-            style={styles.input}
-            value={cr}
-            onChangeText={v => { console.log('[Diagnosztika] C-R input:', v); setCr(v); }}
-            keyboardType="numeric"
-            placeholder="pl. 2.5"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
+        <Text style={styles.label}>Mérővezetékek ellenállása (Ω)</Text>
+        <TextInput style={styles.input} value={leadResistance} onChangeText={setLeadResistance} keyboardType="numeric" placeholder="pl. 0.2" placeholderTextColor={HVAC_TEXT_SECONDARY} />
 
-          <Text style={styles.label}>C–S tekercs (Ω)</Text>
-          <TextInput
-            style={styles.input}
-            value={cs}
-            onChangeText={v => { console.log('[Diagnosztika] C-S input:', v); setCs(v); }}
-            keyboardType="numeric"
-            placeholder="pl. 4.0"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
-
-          <Text style={styles.label}>R–S tekercs (Ω)</Text>
-          <TextInput
-            style={styles.input}
-            value={rs}
-            onChangeText={v => { console.log('[Diagnosztika] R-S input:', v); setRs(v); }}
-            keyboardType="numeric"
-            placeholder="pl. 6.5"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
-
-          <Text style={styles.label}>Kapocs–föld (MΩ) – opcionális</Text>
-          <TextInput
-            style={styles.input}
-            value={ground}
-            onChangeText={v => { console.log('[Diagnosztika] Kapocs-föld input:', v); setGround(v); }}
-            keyboardType="numeric"
-            placeholder="pl. 100"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
-
-          <View style={styles.resultBox}>
-            <View style={styles.resultRow}>
-              <Text style={[styles.resultLabel, { flex: 0.4 }]}>Értékelés</Text>
-              <Text style={[styles.resultValue, { fontSize: 14, flex: 0.6, textAlign: 'right', color: result?.color ?? HVAC_TEXT_SECONDARY }]}>
-                {result?.suspicion ?? '—'}
-              </Text>
-            </View>
-            <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 8, marginTop: 4 }]}>
-              <Text style={[styles.resultLabel, { flex: 0.4 }]}>Javasolt lépés</Text>
-              <Text style={[styles.resultValue, { fontSize: 14, flex: 0.6, textAlign: 'right', color: result?.step != null ? HVAC_BLUE : HVAC_TEXT_SECONDARY }]}>
-                {result?.step ?? '—'}
-              </Text>
-            </View>
-          </View>
-
-          <Text style={styles.noteText}>
-            Tájékoztató jellegű. C-R + C-S ≈ R-S (±15%). Pontos diagnózishoz kalibrált mérőeszköz szükséges.
-          </Text>
+        <Text style={styles.label}>Kapocs–kompresszorház multiméterrel</Text>
+        <View style={styles.segmentRow}>
+          {([
+            ['not-measured', 'Nem mértem'],
+            ['ol', 'OL'],
+            ['conductive', 'Vezetést mutat'],
+          ] as const).map(([value, label]) => (
+            <TouchableOpacity key={value} style={[styles.segmentBtn, groundStatus === value && styles.segmentBtnActive]} onPress={() => setGroundStatus(value)}>
+              <Text style={[styles.segmentText, groundStatus === value && styles.segmentBtnActiveText]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      )}
+
+        <View style={styles.resultBox}>
+          <View style={styles.resultRow}><Text style={[styles.resultLabel, { flex: 0.4 }]}>Eredmény</Text><Text style={[styles.resultValue, { fontSize: 14, flex: 0.6, textAlign: 'right', color: result?.color ?? HVAC_TEXT_SECONDARY }]}>{result?.suspicion ?? '—'}</Text></View>
+          <View style={[styles.resultRow, { borderTopWidth: 1, borderTopColor: HVAC_BORDER, paddingTop: 8, marginTop: 4 }]}><Text style={[styles.resultLabel, { flex: 0.4 }]}>Teendő</Text><Text style={[styles.resultValue, { fontSize: 14, flex: 0.6, textAlign: 'right', color: result ? HVAC_BLUE : HVAC_TEXT_SECONDARY }]}>{result?.step ?? '—'}</Text></View>
+        </View>
+        <Text style={styles.noteText}>C–R + C–S = R–S a mérővezeték ellenállásának levonása után. A gyári tekercsérték és tűrés nélkül az app nem mondja rá a kompresszorra, hogy jó vagy rossz. A ház felé mért OL nem helyettesíti a szigetelésvizsgálatot.</Text>
+      </View>}
     </View>
   );
 }
@@ -995,6 +941,7 @@ function KompresszorElektromosEllenorzes() {
 
 export default function DiagnosztikaSreen() {
   const router = useRouter();
+  const { tool } = useLocalSearchParams<{ tool?: string }>();
   const backBtn = {
     position: 'absolute' as const,
     top: 20,
@@ -1024,12 +971,12 @@ export default function DiagnosztikaSreen() {
         >
           <Home size={22} color="#60A5FA" />
         </TouchableOpacity>
-        <Text style={styles.screenTitle}>Diagnosztika</Text>
-        <CompressorDiagnostics />
-        <KompresszioviszonyKalkulator />
-        <DeltaTKalkulator />
-        <GyorsHibagyanú />
-        <KompresszorElektromosEllenorzes />
+        <Text style={styles.screenTitle}>{tool ? 'Mérés ellenőrzése' : 'Diagnosztika'}</Text>
+        {tool === 'compressor-electrical' && <>
+          <ToolGuide title="Kompresszor C–R–S ellenőrzése" useWhen="Egyfázisú kompresszor kapcsain mért tekercsellenállások kapcsolatát és a ház felé mérhető vezetést ellenőrzöd." needs="C–R, C–S, R–S, mérővezeték-ellenállás, valamint a kapcsok és a ház közötti multiméteres eredmény." accuracy="engineering" accuracyNote="Az összegellenőrzés pontos, de gyári tekercsérték és tűrés nélkül nem minősíti a tekercs állapotát. A multiméteres OL nem szigetelésvizsgálat." />
+          <KompresszorElektromosEllenorzes />
+        </>}
+        {!tool && <><CompressorDiagnostics /><KompresszioviszonyKalkulator /><DeltaTKalkulator /><GyorsHibagyanú /><KompresszorElektromosEllenorzes /></>}
       </ScrollView>
     </View>
   );
