@@ -8,7 +8,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { ChevronDown, ChevronUp, ChevronLeft, Zap, Activity, Cpu, Calculator, Receipt, ToggleLeft, Home } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ToolGuide } from '@/components/AccuracyNotice';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -708,6 +709,7 @@ function VillanyszamlaKalkulator() {
 
 export default function VillanyScreen() {
   const router = useRouter();
+  const { tool } = useLocalSearchParams<{ tool?: string }>();
   const backBtn = {
     position: 'absolute' as const,
     top: 20,
@@ -737,13 +739,10 @@ export default function VillanyScreen() {
         >
           <Home size={22} color="#60A5FA" />
         </TouchableOpacity>
-        <Text style={styles.screenTitle}>Villany</Text>
-        <OhmLawCalculator />
-        <SinglePhasePower />
-        <ThreePhasePower />
-        <WVAKalkulator />
-        <TeljesitmenyKalkulator />
-        <VillanyszamlaKalkulator />
+        <Text style={styles.screenTitle}>{tool ? 'Villamos számítás' : 'Villany'}</Text>
+        {tool === 'single-phase' && <><ToolGuide title="Egyfázisú villamos teljesítmény" useWhen="Egy 230 V-os fogyasztó felvett hatásos teljesítményét szeretnéd meghatározni." needs="Mért feszültség, áram és a készülék teljesítménytényezője (cos φ)." accuracy="engineering" accuracyNote="A képlet pontos; az eredményt a mérés és a cos φ pontossága határozza meg." /><SinglePhasePower /></>}
+        {tool === 'three-phase' && <><ToolGuide title="Háromfázisú villamos teljesítmény" useWhen="Szimmetrikus háromfázisú fogyasztó hatásos teljesítményét ellenőrzöd." needs="Vonali feszültség, vonali áram és cos φ. Aszimmetrikus terhelésnél fázisonként kell mérni." accuracy="engineering" /><ThreePhasePower /></>}
+        {!tool && <><OhmLawCalculator /><SinglePhasePower /><ThreePhasePower /><WVAKalkulator /><TeljesitmenyKalkulator /></>}
       </ScrollView>
     </View>
   );
