@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.placeholder.app",
+      "bundleIdentifier": "hu.northwind.hvacpro",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -24,7 +24,8 @@
         "foregroundImage": "./assets/images/app-icon-gou.png",
         "backgroundColor": "#0D0F12"
       },
-      "package": "com.placeholder.app"
+      "package": "hu.northwind.hvacpro",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/images/newly.png",
