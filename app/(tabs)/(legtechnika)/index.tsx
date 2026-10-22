@@ -8,7 +8,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Pipette, Ruler, TrendingDown, Wind, Home } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ToolGuide } from '@/components/AccuracyNotice';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -868,6 +869,7 @@ function ResultRow({ label, value, unit, highlight }: { label: string; value: st
 
 export default function LegtechnikaScreen() {
   const router = useRouter();
+  const { tool } = useLocalSearchParams<{ tool?: string }>();
   const backBtn = {
     position: 'absolute' as const,
     top: 20,
@@ -897,7 +899,20 @@ export default function LegtechnikaScreen() {
         >
           <Home size={22} color="#60A5FA" />
         </TouchableOpacity>
-        <Text style={styles.screenTitle}>Légtechnika</Text>
+        <Text style={styles.screenTitle}>{tool ? 'Helyszíni számítás' : 'Légtechnika'}</Text>
+        {tool === 'duct-sizing' && <>
+          <ToolGuide title="Mekkora légcsatorna kell?" useWhen="Ismered az adott csőszakaszon átmenő légmennyiséget, és megfelelő keresztmetszetet szeretnél választani." needs="Légmennyiség (m³/h) és a kívánt vagy megengedett légsebesség (m/s)." accuracy="engineering" accuracyNote="A geometriai méretezés pontos. A megengedett sebességet a zaj és a tervezési követelmény alapján kell megválasztani." />
+          <DuctSizingTool />
+        </>}
+        {tool === 'pressure-drop' && <>
+          <ToolGuide title="Mekkora a teljes nyomásveszteség?" useWhen="Egy konkrét légutat ellenőrzöl a ventilátortól a kiválasztott végpontig. Párhuzamos ágakat nem szabad egyszerűen összeadni." needs="Légmennyiség, csőtípusok és hosszak, átmérők, valamint az útvonalon lévő idomok és végpontok." accuracy="estimate" accuracyNote="Gyártói termékadat nélkül az idomok általános veszteségtényezővel számolnak. Ellenőrzött termék kiválasztásakor gyártói minősítésre vált." />
+          <PressureDropTool />
+        </>}
+        {tool === 'pipe-sizing' && <>
+          <ToolGuide title="Vízcső méretezése és nyomásvesztesége" useWhen="Fűtési vagy hűtési vízkör térfogatáramához keresel csőméretet." needs="Térfogatáram, belső csőátmérő, csőhossz és a közeg számítási adatai." accuracy="engineering" accuracyNote="Az eredmény a megadott belső átmérőre és csőérdességre érvényes; a szerelvényeket külön kell figyelembe venni." />
+          <PipeSizingTool />
+        </>}
+        {!tool && <>
         <DuctSizingTool />
         <PressureDropTool />
         <PipeSizingTool />
@@ -928,6 +943,7 @@ export default function LegtechnikaScreen() {
           </View>
           <ChevronRight size={18} color={HVAC_TEXT_SECONDARY} />
         </TouchableOpacity>
+        </>}
       </ScrollView>
     </View>
   );
