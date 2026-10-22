@@ -8,7 +8,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { ChevronDown, ChevronUp, ChevronLeft, Thermometer, Gauge, Wind, Zap, Activity, DollarSign, Home } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ToolGuide } from '@/components/AccuracyNotice';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -774,6 +775,7 @@ function CurrencyConverter() {
 
 export default function AtvaltoScreen() {
   const router = useRouter();
+  const { tool } = useLocalSearchParams<{ tool?: string }>();
   const backBtn = {
     position: 'absolute' as const,
     top: 20,
@@ -803,13 +805,16 @@ export default function AtvaltoScreen() {
         >
           <Home size={22} color="#60A5FA" />
         </TouchableOpacity>
-        <Text style={styles.screenTitle}>Átváltók</Text>
-        <TemperatureConverter />
-        <PressureConverter />
-        <AirflowConverter />
-        <PowerConverter />
-        <MassFlowConverter />
-        <CurrencyConverter />
+        <Text style={styles.screenTitle}>{tool ? 'Gyors átváltás' : 'Átváltók'}</Text>
+        {tool === 'currency' && <>
+          <ToolGuide title="Valutaátváltó" useWhen="Egy összeget másik pénznemben szeretnél látni." needs="Összeg, kiinduló pénznem és célpénznem." accuracy="estimate" accuracyNote="Referenciaárfolyamot használ; a bank vagy kártyaszolgáltató tényleges árfolyama és díja eltérhet." />
+          <CurrencyConverter />
+        </>}
+        {tool === 'pressure' && <>
+          <ToolGuide title="Nyomás átváltása" useWhen="Ugyanazt a mért nyomást másik mértékegységben szeretnéd megkapni." needs="A mért érték, a jelenlegi és a kívánt mértékegység." accuracy="engineering" accuracyNote="Pontos mértékegység-átváltás. Az abszolút és relatív nyomás különbségét ez önmagában nem korrigálja." />
+          <PressureConverter />
+        </>}
+        {!tool && <><CurrencyConverter /><TemperatureConverter /><PressureConverter /><AirflowConverter /><PowerConverter /><MassFlowConverter /></>}
       </ScrollView>
     </View>
   );
