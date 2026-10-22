@@ -8,7 +8,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { ChevronDown, ChevronUp, ChevronLeft, Zap, Gauge, FlaskConical, Table2, Thermometer, Activity, Ruler, Wind, Layers, Plus, Trash2, Home } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ToolGuide } from '@/components/AccuracyNotice';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -1281,6 +1282,7 @@ function FanCoilMerezezo() {
 
 export default function HutestechnikaScreen() {
   const router = useRouter();
+  const { tool } = useLocalSearchParams<{ tool?: string }>();
 
   const backBtn = {
     position: 'absolute' as const,
@@ -1313,15 +1315,13 @@ export default function HutestechnikaScreen() {
           <Home size={22} color="#60A5FA" />
         </TouchableOpacity>
 
-        <Text style={styles.screenTitle}>Hűtéstechnika</Text>
-
-        <TeljesitmenyAtvalto />
-        <CopEer />
-        <Nyomaspróba />
-        <PtTabla />
-        <TulhevitesUtohutes />
-        <HutokörGyorsEllenorzes />
-
+        <Text style={styles.screenTitle}>{tool ? 'Hűtőkör számítás' : 'Hűtéstechnika'}</Text>
+        {tool === 'pt-table' && <><ToolGuide title="Nyomás–hőmérséklet (PT)" useWhen="A mért hűtőközeg-nyomáshoz tartozó telítési hőmérsékletet keresed." needs="Hűtőközeg, nyomásérték, mértékegység, valamint hogy relatív vagy abszolút nyomásról van-e szó." accuracy="engineering" accuracyNote="A helyes buborék-/harmatpont és nyomásalap kiválasztása döntő." /><PtTabla /></>}
+        {tool === 'superheat-subcool' && <><ToolGuide title="Túlhevítés és utóhűtés" useWhen="A hűtőkör állapotát a telítési és csőhőmérséklet különbségével ellenőrzöd." needs="Hűtőközeg, megfelelő oldali nyomás és ugyanazon ponton mért csőhőmérséklet." accuracy="engineering" /><TulhevitesUtohutes /></>}
+        {tool === 'pressure-test' && <><ToolGuide title="Nyomáspróba hőmérséklet-korrekció" useWhen="A nitrogénes nyomáspróba értékeit eltérő hőmérsékleten hasonlítod össze." needs="Kezdő relatív nyomás, kezdő és jelenlegi hőmérséklet, lehetőleg helyi légköri nyomás." accuracy="engineering" accuracyNote="Ideális gázon alapuló korrekció; a rendszer hőkiegyenlítődése és a műszer pontossága befolyásolja." /><Nyomaspróba /></>}
+        {tool === 'split-sizing' && <><ToolGuide title="Split klíma gyors méretezése" useWhen="Előzetesen szeretnéd megbecsülni egy helyiség hűtési igényét." needs="Helyiségméretek, szerkezetek, ablakok, tájolás, belső hőterhelések és tervezési hőmérsékletek." accuracy="estimate" accuracyNote="Ez előméretezés; hiányos épületszerkezeti adatoknál nem helyettesít teljes hőterhelés-számítást." /><SplitGyorsmerezezo /></>}
+        {!tool && <>
+        <TeljesitmenyAtvalto /><CopEer /><Nyomaspróba /><PtTabla /><TulhevitesUtohutes /><HutokörGyorsEllenorzes />
         {/* Méretezés section */}
         <Text style={{ fontSize: 18, fontWeight: '700', color: HVAC_TEXT, marginTop: 16, marginBottom: 12, letterSpacing: -0.2 }}>
           Méretezés
@@ -1329,6 +1329,7 @@ export default function HutestechnikaScreen() {
         <SplitGyorsmerezezo />
         <DuctedSplitValaszto />
         <FanCoilMerezezo />
+        </>}
       </ScrollView>
     </View>
   );
