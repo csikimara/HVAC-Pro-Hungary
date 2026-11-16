@@ -9,6 +9,7 @@
     "web": "EXPO_NO_TELEMETRY=1 expo start --web",
     "build:web": "expo export -p web && npx workbox generateSW workbox-config.js",
     "build:android": "expo prebuild -p android",
+    "test:engineering": "node tests/ductPressure.test.mjs && node tests/airsideWorkflows.test.mjs && node tests/electricalPower.test.mjs && node tests/kitchenVentilation.test.mjs && node tests/psychrometrics.test.mjs && node tests/engineeringStandards.test.mjs && node tests/ptData.test.mjs && node tests/manufacturerPressureData.test.mjs && node tests/calculationQuality.test.mjs && node tests/calculationRecord.test.mjs && node tests/northwindFlowBridge.test.mjs",
     "lint": "eslint ."
   },
   "dependencies": {

@@ -9,8 +9,10 @@ import {
 } from 'react-native';
 import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Pipette, Ruler, TrendingDown, Wind, Home } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { AccuracyNotice, ToolGuide } from '@/components/AccuracyNotice';
-import { VERIFIED_MANUFACTURER_CURVES, pressureFromManufacturerCurve } from '@/domain/manufacturerPressureData';
+import { ToolGuide } from '@/components/AccuracyNotice';
+import { PressurePathBuilder } from '@/components/PressurePathBuilder';
+import { BathroomExhaustWizard, DuctedAirsideWizard, FreshAirGuide, KitchenExhaustWizard, ResidentialAhuWizard } from '@/components/AirsideJobTools';
+import { PsychrometricTool } from '@/components/PsychrometricTool';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -247,7 +249,6 @@ function PressureDropTool() {
   const [rectHeight, setRectHeight] = useState('');
   const [selectedFittings, setSelectedFittings] = useState<number[]>([]); // indices into FITTINGS
   const [fittingsOpen, setFittingsOpen] = useState(false);
-  const [manufacturerProductId, setManufacturerProductId] = useState<string | null>(null);
 
   const result = useMemo(() => {
     const Q_raw = parseFloat(airflow);
@@ -309,13 +310,8 @@ function PressureDropTool() {
     const dynPressure = 0.5 * rho * Math.pow(v, 2); // Pa
     const totalK = selectedFittings.reduce((sum, idx) => sum + FITTINGS[idx].K, 0);
     const fittingLoss = totalK > 0 ? totalK * dynPressure : null;
-    const manufacturerCurve = VERIFIED_MANUFACTURER_CURVES.find(item => item.id === manufacturerProductId);
-    const manufacturerResult = manufacturerCurve
-      ? pressureFromManufacturerCurve(manufacturerCurve, Q * 3600)
-      : null;
-    const manufacturerLoss = manufacturerResult?.status === 'ok' ? manufacturerResult.pressurePa : null;
-    const totalLoss = deltaP !== null || fittingLoss !== null || manufacturerLoss !== null
-      ? (deltaP ?? 0) + (fittingLoss ?? 0) + (manufacturerLoss ?? 0)
+    const totalLoss = deltaP !== null || fittingLoss !== null
+      ? (deltaP ?? 0) + (fittingLoss ?? 0)
       : null;
 
     const vColor = v <= 3.5 ? HVAC_GREEN : v <= 5 ? HVAC_YELLOW : HVAC_RED;
@@ -328,14 +324,10 @@ function PressureDropTool() {
       specificDrop: R.toFixed(3),
       specificColor: rColor,
       fittingLoss: fittingLoss !== null ? fittingLoss.toFixed(2) : null,
-      manufacturerLoss: manufacturerLoss !== null ? manufacturerLoss.toFixed(2) : null,
-      manufacturerOutsideRange: manufacturerResult?.status === 'outside-range'
-        ? `${manufacturerResult.minFlowM3h.toFixed(0)}–${manufacturerResult.maxFlowM3h.toFixed(0)} m³/h`
-        : null,
       totalLoss: totalLoss !== null ? totalLoss.toFixed(2) : null,
       lambdaDisplay: ductMaterial === 'sonodek' ? lambda.toFixed(4) : null,
     };
-  }, [airflow, airflowUnit, ductSize, sizeUnit, ductLength, lengthUnit, roughness, ductShape, rectWidth, rectHeight, selectedFittings, ductMaterial, sonodekDiam, manufacturerProductId]);
+  }, [airflow, airflowUnit, ductSize, sizeUnit, ductLength, lengthUnit, roughness, ductShape, rectWidth, rectHeight, selectedFittings, ductMaterial, sonodekDiam]);
 
   return (
     <View style={styles.card}>
@@ -631,21 +623,8 @@ function PressureDropTool() {
           )}
 
           <Text style={styles.noteText}>
-            Az általános idomok K-értékei becslések – a tényleges veszteség a pontos geometriától és a gyártótól függ.
+            Az idom K-értékek tájékoztató jellegűek – a tényleges veszteség a geometriától és a gyártótól függ.
           </Text>
-
-          <Text style={[styles.label, { marginTop: 16 }]}>Konkrét gyártói végpont – opcionális</Text>
-          <TouchableOpacity
-            style={[styles.segmentBtn, manufacturerProductId != null && styles.segmentBtnActive, { marginBottom: 10 }]}
-            onPress={() => setManufacturerProductId(current => current ? null : VERIFIED_MANUFACTURER_CURVES[0].id)}
-          >
-            <Text style={[styles.segmentText, manufacturerProductId != null && styles.segmentTextActive]}>
-              {VERIFIED_MANUFACTURER_CURVES[0].label}
-            </Text>
-          </TouchableOpacity>
-          {manufacturerProductId
-            ? <AccuracyNotice level="manufacturer" note="Hivatalos gyártói táblázat pontjai között interpolálva. A táblázat tartományán kívül az app nem számol tovább a görbével." />
-            : <AccuracyNotice level="estimate" note="Nincs gyártói termék kiválasztva; csak az általános cső- és idommodell számol." />}
 
           <View style={styles.resultBox}>
             <ResultRow label="Légsebesség" value={result?.velocity ?? '—'} unit="m/s" highlight={result?.velocityColor} />
@@ -654,15 +633,7 @@ function PressureDropTool() {
             )}
             <ResultRow label="Fajlagos nyomásesés" value={result?.specificDrop ?? '—'} unit="Pa/m" highlight={result?.specificColor} />
             <ResultRow label="Egyenes szakasz" value={result?.pressureDrop ?? '—'} unit="Pa" />
-            <ResultRow label="Általános idomveszteség" value={result?.fittingLoss ?? '—'} unit="Pa" highlight={result?.fittingLoss ? HVAC_YELLOW : undefined} />
-            {manufacturerProductId && result?.manufacturerOutsideRange && (
-              <Text style={{ color: HVAC_YELLOW, fontSize: 13, lineHeight: 19 }}>
-                A megadott légmennyiség kívül esik a gyártói adatok {result.manufacturerOutsideRange} tartományán, ezért ehhez a termékhez nem adunk extrapolált értéket.
-              </Text>
-            )}
-            {manufacturerProductId && !result?.manufacturerOutsideRange && (
-              <ResultRow label="Gyártói termék vesztesége" value={result?.manufacturerLoss ?? '—'} unit="Pa" highlight={HVAC_GREEN} />
-            )}
+            <ResultRow label="Idomveszteség" value={result?.fittingLoss ?? '—'} unit="Pa" highlight={result?.fittingLoss ? HVAC_YELLOW : undefined} />
             <ResultRow label="Teljes nyomásesés" value={result?.totalLoss ?? '—'} unit="Pa" highlight={result?.totalLoss ? HVAC_BLUE : undefined} />
           </View>
         </View>
@@ -932,49 +903,61 @@ export default function LegtechnikaScreen() {
           <Home size={22} color="#60A5FA" />
         </TouchableOpacity>
         <Text style={styles.screenTitle}>{tool ? 'Helyszíni számítás' : 'Légtechnika'}</Text>
-        {tool === 'duct-sizing' && <>
-          <ToolGuide title="Mekkora légcsatorna kell?" useWhen="Ismered az adott csőszakaszon átmenő légmennyiséget, és megfelelő keresztmetszetet szeretnél választani." needs="Légmennyiség (m³/h) és a kívánt vagy megengedett légsebesség (m/s)." accuracy="engineering" accuracyNote="A geometriai méretezés pontos. A megengedett sebességet a zaj és a tervezési követelmény alapján kell megválasztani." />
-          <DuctSizingTool />
-        </>}
-        {tool === 'pressure-drop' && <>
-          <ToolGuide title="Mekkora a teljes nyomásveszteség?" useWhen="Egy konkrét légutat ellenőrzöl a ventilátortól a kiválasztott végpontig. Párhuzamos ágakat nem szabad egyszerűen összeadni." needs="Légmennyiség, csőtípusok és hosszak, átmérők, valamint az útvonalon lévő idomok és végpontok." accuracy="estimate" accuracyNote="Gyártói termékadat nélkül az idomok általános veszteségtényezővel számolnak. Ellenőrzött termék kiválasztásakor gyártói minősítésre vált." />
-          <PressureDropTool />
-        </>}
-        {tool === 'pipe-sizing' && <>
-          <ToolGuide title="Vízcső méretezése és nyomásvesztesége" useWhen="Fűtési vagy hűtési vízkör térfogatáramához keresel csőméretet." needs="Térfogatáram, belső csőátmérő, csőhossz és a közeg számítási adatai." accuracy="engineering" accuracyNote="Az eredmény a megadott belső átmérőre és csőérdességre érvényes; a szerelvényeket külön kell figyelembe venni." />
-          <PipeSizingTool />
-        </>}
+
+        {tool === 'duct-sizing' && (
+          <>
+            <ToolGuide
+              title="Mekkora légcsatorna kell?"
+              useWhen="Ismered az adott csőszakaszon átmenő légmennyiséget, és megfelelő kör vagy négyszög keresztmetszetet szeretnél választani."
+              needs="Légmennyiség (m³/h) és a megengedett vagy kívánt légsebesség (m/s)."
+              accuracy="engineering"
+              accuracyNote="A geometriai méretezés pontos. A megengedett sebességet a zaj, a rendszer helye és a tervezési követelmény alapján neked kell megválasztanod."
+            />
+            <DuctSizingTool />
+          </>
+        )}
+        {tool === 'ducted-airside' && <DuctedAirsideWizard />}
+        {tool === 'residential-ahu' && <ResidentialAhuWizard />}
+        {tool === 'bathroom-exhaust' && <BathroomExhaustWizard />}
+        {tool === 'kitchen-exhaust' && <KitchenExhaustWizard />}
+        {tool === 'fresh-air' && <FreshAirGuide />}
+        {tool === 'psychrometrics' && (
+          <>
+            <ToolGuide
+              title="Hőmérséklet–páratartalom–harmatpont"
+              useWhen="Meg akarod érteni, hogyan változik ugyanannak a levegőnek a relatív páratartalma hűtéskor vagy melegítéskor, illetve lecsapódik-e a pára egy hideg felületen."
+              needs="Jelenlegi levegő-hőmérséklet, relatív páratartalom, célhőmérséklet és szükség esetén a vizsgált felület mért hőmérséklete."
+              accuracy="engineering"
+              accuracyNote="ASHRAE pszichrometriai egyenletek. A képletszámítás részletes; a végeredmény mérési pontosságát a használt hőmérő, páramérő és felületi érzékelő határozza meg."
+            />
+            <PsychrometricTool />
+          </>
+        )}
+        {tool === 'pressure-drop' && (
+          <>
+            <ToolGuide
+              title="Mekkora a teljes nyomásveszteség?"
+              useWhen="Egy konkrét légutat ellenőrzöl a ventilátortól a kiválasztott befúvóig vagy elszívóig. Párhuzamos ágak veszteségét nem szabad egyszerűen összeadni."
+              needs="Légmennyiség, csőtípusok és hosszak, átmérők, valamint az útvonalon lévő idomok és végpontok."
+              accuracy="engineering-estimate"
+              accuracyNote="Gyártói termékadat nélkül az idomok általános veszteségtényezővel számolnak. Konkrét, támogatott gyártói termék kiválasztásakor ez Gyártói adat minősítésre vált."
+            />
+            <PressurePathBuilder />
+          </>
+        )}
         {!tool && <>
-        <DuctSizingTool />
-        <PressureDropTool />
-        <PipeSizingTool />
-        <TouchableOpacity
-          style={{
-            backgroundColor: HVAC_CARD,
-            borderWidth: 1,
-            borderColor: HVAC_BORDER,
-            borderRadius: 16,
-            padding: 16,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 12,
-          }}
-          onPress={() => {
-            console.log('[Légtechnika] Navigálás: Légelosztás');
-            router.push('/(tabs)/(legtechnika)/legelosztasscreen');
-          }}
-          activeOpacity={0.7}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Wind size={20} color={HVAC_BLUE} />
-            <View>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: HVAC_TEXT }}>Légelosztás</Text>
-              <Text style={{ fontSize: 12, color: HVAC_TEXT_SECONDARY, marginTop: 2 }}>Ág tervezés · ESP ellenőrzés</Text>
-            </View>
-          </View>
-          <ChevronRight size={18} color={HVAC_TEXT_SECONDARY} />
-        </TouchableOpacity>
+          <Text style={{ color: HVAC_TEXT_SECONDARY, fontSize: 15, lineHeight: 21, marginBottom: 14 }}>Mit szeretnél most megcsinálni?</Text>
+          {[
+            ['Légcsatornázható split / fan-coil légoldal', 'Gyári kör csonkok, közvetlen ágak és szükség esetén Y-osztások', 'ducted-airside'],
+            ['Családi házas légkezelő hálózata', 'Jellemzően 300–500 m³/h, külön befúvó és elszívó főcsatornákkal', 'residential-ahu'],
+            ['Fürdőszoba vagy WC elszívása', 'Helyiségből légszállítás és csőméret, vagy meglévő cső ellenőrzése', 'bathroom-exhaust'],
+            ['Konyhai ipari / lakossági elszívás', 'Lakossági páraelszívó vagy nagykonyhai elszívóernyő külön számítási úton', 'kitchen-exhaust'],
+            ['Lakás frisslevegő-igénye', 'Nappali és hálószoba mérnöki ajánlása', 'fresh-air'],
+            ['Hőmérséklet–páratartalom–harmatpont', 'Lehűlés, melegítés és felületi páralecsapódás ellenőrzése', 'psychrometrics'],
+            ['Egy légút részletes nyomásvesztesége', 'Minden cső, idom, rács, légszelep és tetőkidobó', 'pressure-drop'],
+          ].map(([title, subtitle, route]) => <TouchableOpacity key={route} style={{ backgroundColor: HVAC_CARD, borderWidth: 1, borderColor: HVAC_BORDER, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }} onPress={() => router.push(`/(tabs)/(legtechnika)?tool=${route}`)} activeOpacity={0.7}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}><Wind size={20} color={HVAC_BLUE} /><View style={{ flex: 1 }}><Text style={{ fontSize: 16, fontWeight: '700', color: HVAC_TEXT }}>{title}</Text><Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, marginTop: 4, lineHeight: 18 }}>{subtitle}</Text></View></View><ChevronRight size={18} color={HVAC_TEXT_SECONDARY} />
+          </TouchableOpacity>)}
         </>}
       </ScrollView>
     </View>

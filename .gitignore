@@ -4,6 +4,8 @@ node_modules/
 .expo/
 
 dist/
+dist-check/
+dist-pc-beta/
 web-build/
 expo-env.d.ts
 

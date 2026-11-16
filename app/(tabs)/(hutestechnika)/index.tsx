@@ -10,6 +10,12 @@ import {
 import { ChevronDown, ChevronUp, ChevronLeft, Zap, Gauge, FlaskConical, Table2, Thermometer, Activity, Ruler, Wind, Layers, Plus, Trash2, Home } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ToolGuide } from '@/components/AccuracyNotice';
+import { PT_SATURATION_DATA, type RefrigerantId } from '@/domain/ptData';
+import { HeatLoadWizard } from '@/components/HeatLoadWizard';
+import { CalculationReportButton } from '@/components/CalculationReportButton';
+import { useEngineeringSettings } from '@/contexts/EngineeringSettingsContext';
+import { classifyCalculationQuality } from '@/domain/calculationQuality';
+import { jurisdictionName, jurisdictionStatus, jurisdictionStatusLabel } from '@/domain/engineeringStandards';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -22,6 +28,10 @@ const HVAC_CYAN = '#06B6D4';
 const HVAC_GREEN = '#22C55E';
 const HVAC_YELLOW = '#F59E0B';
 const HVAC_RED = '#EF4444';
+
+function numeric(value: string): number {
+  return Number(value.trim().replace(',', '.'));
+}
 
 // ─── Shared ResultRow ─────────────────────────────────────────────────────────
 
@@ -232,34 +242,47 @@ function CopEer() {
 // ─── 3. Nyomáspróba ───────────────────────────────────────────────────────────
 
 function Nyomaspróba() {
+  const { calculationMode, language, jurisdiction } = useEngineeringSettings();
+  const completeMode = calculationMode === 'complete-engineering';
   const [open, setOpen] = useState(true);
   const [unit, setUnit] = useState<'bar' | 'kPa' | 'Pa'>('bar');
   const [startP, setStartP] = useState('');
   const [endP, setEndP] = useState('');
-  const [duration, setDuration] = useState('');
   const [t1, setT1] = useState('');
   const [t2, setT2] = useState('');
+  const [atmosphericBar, setAtmosphericBar] = useState('1,01325');
+  const [toleranceBar, setToleranceBar] = useState('0,20');
+  const [testMedium, setTestMedium] = useState('Nitrogén');
+  const [pressureInstrument, setPressureInstrument] = useState('');
+  const [temperatureInstrument, setTemperatureInstrument] = useState('');
+  const [toleranceSource, setToleranceSource] = useState('');
 
   const UNITS: Array<'bar' | 'kPa' | 'Pa'> = ['bar', 'kPa', 'Pa'];
 
   const result = useMemo(() => {
-    const p1g = parseFloat(startP);
-    const p2g = parseFloat(endP);
-    const T1c = parseFloat(t1);
-    const T2c = parseFloat(t2);
-    if (isNaN(p1g) || isNaN(p2g) || isNaN(T1c) || isNaN(T2c)) return null;
+    const p1g = numeric(startP);
+    const measuredEnd = endP.trim() ? numeric(endP) : null;
+    const T1c = numeric(t1);
+    const T2c = numeric(t2);
+    const atmosphericPressureBar = numeric(atmosphericBar);
+    const toleranceInBar = numeric(toleranceBar);
+    if (![p1g, T1c, T2c, atmosphericPressureBar, toleranceInBar].every(Number.isFinite) || atmosphericPressureBar <= 0 || toleranceInBar < 0) return null;
 
     // atmospheric offset in the current unit
-    const atm = unit === 'bar' ? 1 : unit === 'kPa' ? 100 : 100000;
+    const unitPerBar = unit === 'bar' ? 1 : unit === 'kPa' ? 100 : 100000;
+    const atm = atmosphericPressureBar * unitPerBar;
+    const tolerance = toleranceInBar * unitPerBar;
 
     const p1abs = p1g + atm;
-    const p2abs = p2g + atm;
     const T1K = T1c + 273.15;
     const T2K = T2c + 273.15;
+    if (T1K <= 0 || T2K <= 0) return null;
 
     const p2TheoAbs = p1abs * (T2K / T1K);
     const p2TheoGauge = p2TheoAbs - atm;
-    const deltaP = p2TheoGauge - p2g;
+    const minimum = p2TheoGauge - tolerance;
+    const difference = measuredEnd == null || !Number.isFinite(measuredEnd) ? null : measuredEnd - p2TheoGauge;
+    const status = difference == null ? null : measuredEnd! < minimum ? 'below' : Math.abs(difference) <= tolerance ? 'within' : 'above';
 
     // Format helpers
     const fmt = (v: number) =>
@@ -267,10 +290,23 @@ function Nyomaspróba() {
 
     return {
       p2Theo: fmt(p2TheoGauge),
-      deltaP: fmt(deltaP),
-      deltaPRaw: deltaP,
+      minimum: fmt(minimum),
+      difference: difference == null ? null : fmt(difference),
+      status,
     };
-  }, [startP, endP, t1, t2, unit]);
+  }, [startP, endP, t1, t2, unit, atmosphericBar, toleranceBar]);
+
+  const pressureRequired: Array<readonly [string, string]> = completeMode ? [
+    ['testMedium', testMedium], ['pressureInstrument', pressureInstrument],
+    ['temperatureInstrument', temperatureInstrument], ['toleranceSource', toleranceSource],
+  ] as const : [];
+  const pressureMissing = pressureRequired.filter(([, value]) => !value.trim()).map(([key]) => key);
+  const pressureQuality = classifyCalculationQuality({
+    mode: completeMode ? 'complete-inputs' : 'guided-estimate', methodId: 'ideal-gas-pressure-temperature-correction', methodVersion: '2.0.0',
+    requiredInputCount: completeMode ? 9 : 5, suppliedRequiredInputCount: completeMode ? 9 - pressureMissing.length : 5,
+    assumedInputKeys: completeMode ? [] : ['instrumentUncertaintyNotDocumented'], missingRequiredInputKeys: pressureMissing,
+    sources: [{ kind: 'engineering-reference', title: 'Ideális gáz állapotegyenlet – zárt térfogat hőmérséklet-korrekciója' }], verificationRequired: 'commissioning',
+  });
 
   return (
     <View style={styles.card}>
@@ -312,16 +348,6 @@ function Nyomaspróba() {
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
-          <Text style={styles.label}>Végnyomás ({unit})</Text>
-          <TextInput
-            style={styles.inputLarge}
-            value={endP}
-            onChangeText={v => { console.log('[Hűtéstechnika] Végnyomás input:', v); setEndP(v); }}
-            keyboardType="numeric"
-            placeholder="pl. 39.8"
-            placeholderTextColor={HVAC_TEXT_SECONDARY}
-          />
-
           <Text style={styles.label}>Kezdeti hőmérséklet T₁ (°C)</Text>
           <TextInput
             style={styles.inputLarge}
@@ -342,24 +368,64 @@ function Nyomaspróba() {
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
-          <Text style={styles.label}>Eltelt idő (perc) – opcionális</Text>
+          <Text style={styles.label}>Helyi légköri nyomás (bar abs.)</Text>
           <TextInput
             style={styles.inputLarge}
-            value={duration}
-            onChangeText={v => { console.log('[Hűtéstechnika] Eltelt idő input:', v); setDuration(v); }}
+            value={atmosphericBar}
+            onChangeText={setAtmosphericBar}
             keyboardType="numeric"
-            placeholder="pl. 30"
+            placeholder="1,01325"
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
+          {completeMode && <>
+            <Text style={styles.label}>Próbaközeg</Text><TextInput style={styles.inputLarge} value={testMedium} onChangeText={setTestMedium} placeholder="pl. száraz nitrogén" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+            <Text style={styles.label}>Nyomásmérő azonosító / típus / kalibrálás</Text><TextInput style={styles.inputLarge} value={pressureInstrument} onChangeText={setPressureInstrument} placeholder="műszer és kalibrálási adat" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+            <Text style={styles.label}>Hőmérő azonosító / típus / kalibrálás</Text><TextInput style={styles.inputLarge} value={temperatureInstrument} onChangeText={setTemperatureInstrument} placeholder="műszer és kalibrálási adat" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+            <Text style={styles.label}>Elfogadási tűrés forrása</Text><TextInput style={styles.inputLarge} value={toleranceSource} onChangeText={setToleranceSource} placeholder="gyártói előírás / projektkövetelmény" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+            {pressureMissing.length > 0 && <Text style={[styles.noteText, { color: HVAC_YELLOW }]}>A mérnöki számításhoz még {pressureMissing.length} bizonyító adat hiányzik.</Text>}
+          </>}
+
           <View style={styles.resultBox}>
-            <ResultRow label="Elméleti végnyomás (hőm.-korr.)" value={result?.p2Theo ?? '—'} unit={result ? unit : undefined} />
-            <ResultRow label="Eltérés (elméleti – mért)" value={result?.deltaP ?? '—'} unit={result ? unit : undefined} highlight={result ? (Math.abs(result.deltaPRaw) < (unit === 'bar' ? 0.05 : unit === 'kPa' ? 5 : 5000) ? HVAC_GREEN : HVAC_YELLOW) : undefined} />
+            <ResultRow label="Ennyit kell mutatnia a végén" value={result?.p2Theo ?? '—'} unit={result ? unit : undefined} highlight={result ? HVAC_BLUE : undefined} />
+          </View>
+
+          <Text style={styles.label}>Ténylegesen mért végnyomás ({unit}) – opcionális</Text>
+          <TextInput style={styles.inputLarge} value={endP} onChangeText={setEndP} keyboardType="numeric" placeholder="pl. 39,8" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+
+          <Text style={styles.label}>Figyelembe vett mérési eltérés (bar)</Text>
+          <TextInput style={styles.inputLarge} value={toleranceBar} onChangeText={setToleranceBar} keyboardType="numeric" placeholder="pl. 0,20" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+
+          <View style={styles.resultBox}>
+            <ResultRow label="Beállított alsó összehasonlítási határ" value={result?.minimum ?? '—'} unit={result ? unit : undefined} />
+            <ResultRow label="Mért érték eltérése az elméletitől" value={result?.difference ?? '—'} unit={result?.difference != null ? unit : undefined} highlight={result?.status === 'below' ? HVAC_RED : result?.status === 'within' ? HVAC_GREEN : result?.status === 'above' ? HVAC_YELLOW : undefined} />
+            <ResultRow label="Értékelés" value={result?.status === 'below' ? 'Az alsó határ alatt – ellenőrizd a rendszert' : result?.status === 'within' ? 'A beállított mérési tartományon belül' : result?.status === 'above' ? 'Az elméleti érték felett – hőkiegyenlítődés/mérés ellenőrzendő' : 'Add meg a mért végnyomást az összehasonlításhoz'} highlight={result?.status === 'below' ? HVAC_RED : result?.status === 'within' ? HVAC_GREEN : result?.status === 'above' ? HVAC_YELLOW : undefined} />
           </View>
 
           <Text style={styles.noteText}>
-            Csak hőmérséklet-korrigált ellenőrzés, nem minősül hivatalos nyomáspróbának.
+            Az eltelt idő nem része a hőmérséklet-korrekció képletének. A piros jelzés a saját magad által beállított mérési eltéréshez viszonyít; nem önkényes szivárgási határ és nem helyettesíti a szabályosan végzett nyomáspróbát.
           </Text>
+          {result && <CalculationReportButton buildRecord={() => ({
+            toolId: 'pressure-test', toolTitle: 'Nyomáspróba hőmérséklet-korrekció', language, jurisdiction,
+            method: { id: pressureQuality.methodId, version: pressureQuality.methodVersion, name: 'Zárt gáztér hőmérséklet-korrekciója', formulaSummary: 'P₂,abs = P₁,abs × T₂/T₁; a manométeres nyomás abszolútra alakítva, a hőmérséklet Kelvinben.' },
+            inputs: [
+              { key: 'startPressure', label: 'Kezdő relatív nyomás', value: numeric(startP), unit, origin: 'measured' },
+              { key: 'startTemperature', label: 'Kezdeti hőmérséklet', value: numeric(t1), unit: '°C', origin: 'measured' },
+              { key: 'endTemperature', label: 'Végső hőmérséklet', value: numeric(t2), unit: '°C', origin: 'measured' },
+              { key: 'atmosphericPressure', label: 'Légköri nyomás', value: numeric(atmosphericBar), unit: 'bar abs.', origin: 'measured' },
+              { key: 'measuredEndPressure', label: 'Mért végnyomás', value: endP.trim() ? numeric(endP) : null, unit, origin: endP.trim() ? 'measured' : 'missing' },
+              { key: 'tolerance', label: 'Összehasonlítási tűrés', value: numeric(toleranceBar), unit: 'bar', origin: completeMode ? 'measured' : 'selected-typical' },
+              ...pressureRequired.map(([key, value]) => ({ key, label: key, value: value || null, origin: value ? 'measured' as const : 'missing' as const })),
+            ],
+            outputs: [
+              { key: 'theoreticalEndPressure', label: 'Elméleti végnyomás', value: result.p2Theo, unit, origin: 'calculated' },
+              { key: 'comparisonMinimum', label: 'Alsó összehasonlítási határ', value: result.minimum, unit, origin: 'calculated' },
+              { key: 'difference', label: 'Mért eltérés', value: result.difference, unit, origin: 'calculated' },
+            ],
+            assumptions: pressureQuality.assumedInputKeys, sources: pressureQuality.sources, quality: pressureQuality,
+            complianceState: `${jurisdictionName(jurisdiction)} · ${jurisdictionStatusLabel(jurisdictionStatus(jurisdiction))}`,
+            requiredVerification: ['Stabilizált közeghőmérséklet igazolása', 'A teljes rendszer szabályos szivárgásvizsgálata', 'Gyártói maximális próbanyomás betartása'],
+          })} />}
         </View>
       )}
     </View>
@@ -368,73 +434,70 @@ function Nyomaspróba() {
 
 // ─── 4. PT tábla ──────────────────────────────────────────────────────────────
 
-// ─── PT data: [pressure_bar, temp_°C] saturation points ──────────────────────
-const PT_DATA: Record<string, [number, number][]> = {
-  R32: [
-    [1.65, -40], [2.09, -35], [2.62, -30], [3.25, -25], [3.99, -20],
-    [4.86, -15], [5.87, -10], [7.03, -5],  [8.36, 0],   [9.87, 5],
-    [11.58, 10], [13.50, 15], [15.65, 20], [18.05, 25], [20.72, 30],
-    [23.68, 35], [26.95, 40], [30.55, 45], [34.51, 50],
-  ],
-  R410A: [
-    [2.48, -40], [3.10, -35], [3.84, -30], [4.72, -25], [5.75, -20],
-    [6.95, -15], [8.33, -10], [9.92, -5],  [11.73, 0],  [13.78, 5],
-    [16.09, 10], [18.68, 15], [21.58, 20], [24.81, 25], [28.40, 30],
-    [32.37, 35], [36.76, 40], [41.60, 45], [46.93, 50],
-  ],
-  R134a: [
-    [0.51, -40], [0.66, -35], [0.84, -30], [1.06, -25], [1.33, -20],
-    [1.65, -15], [2.01, -10], [2.43, -5],  [2.93, 0],   [3.50, 5],
-    [4.15, 10],  [4.89, 15],  [5.72, 20],  [6.65, 25],  [7.70, 30],
-    [8.87, 35],  [10.17, 40], [11.60, 45], [13.18, 50],
-  ],
+type PtPressureUnit = 'bar' | 'kPa' | 'MPa' | 'psi';
+type PressureBasis = 'gauge' | 'absolute';
+
+const REFRIGERANT_LABELS: Record<RefrigerantId, string> = {
+  R32: 'R32', R410A: 'R410A', R134a: 'R134a', R404A: 'R404A', R407C: 'R407C',
+  R290: 'R290 (propán)', R600a: 'R600a (izobután)', R1234yf: 'R1234yf',
+  R22: 'R22 (régi rendszer)', R744: 'R744 / CO₂', R454B: 'R454B', R454C: 'R454C',
+  R448A: 'R448A', R449A: 'R449A',
 };
 
-// Unit conversion to bar
-function toBar(val: number, unit: string): number {
-  if (unit === 'bar')  return val;
-  if (unit === 'kPa')  return val / 100;
-  if (unit === 'Pa')   return val / 100000;
-  if (unit === 'psig') return val * 0.0689476 + 1.01325; // gauge to absolute bar
-  return val;
+function pressureToAbsoluteBar(value: number, unit: PtPressureUnit, basis: PressureBasis, atmosphericBar: number): number {
+  const bar = unit === 'bar' ? value : unit === 'kPa' ? value / 100 : unit === 'MPa' ? value * 10 : value * 0.0689475729;
+  return basis === 'gauge' ? bar + atmosphericBar : bar;
 }
 
-function interpolatePT(table: [number, number][], pBar: number): { temp: string; exact: boolean; outOfRange: boolean } {
-  if (pBar <= 0) return { temp: '', exact: false, outOfRange: true };
-  const min = table[0][0];
-  const max = table[table.length - 1][0];
-  if (pBar < min || pBar > max) return { temp: '', exact: false, outOfRange: true };
-
-  for (let i = 0; i < table.length; i++) {
-    if (Math.abs(table[i][0] - pBar) < 0.001) {
-      return { temp: table[i][1].toFixed(1), exact: true, outOfRange: false };
-    }
-    if (i < table.length - 1 && pBar > table[i][0] && pBar < table[i + 1][0]) {
-      const [p0, t0] = table[i];
-      const [p1, t1] = table[i + 1];
-      const t = t0 + (t1 - t0) * (pBar - p0) / (p1 - p0);
-      return { temp: t.toFixed(1), exact: false, outOfRange: false };
+function saturationTemperature(refrigerant: RefrigerantId, absoluteBar: number, phase: 'bubble' | 'dew') {
+  const rows = PT_SATURATION_DATA[refrigerant];
+  const column = phase === 'bubble' ? 1 : 2;
+  if (absoluteBar < rows[0][column] || absoluteBar > rows[rows.length - 1][column]) return null;
+  for (let index = 0; index < rows.length - 1; index += 1) {
+    const current = rows[index];
+    const next = rows[index + 1];
+    const p0 = current[column];
+    const p1 = next[column];
+    if (absoluteBar >= p0 && absoluteBar <= p1) {
+      const ratio = p1 === p0 ? 0 : (absoluteBar - p0) / (p1 - p0);
+      return current[0] + ratio * (next[0] - current[0]);
     }
   }
-  return { temp: '', exact: false, outOfRange: true };
+  return null;
 }
 
 function PtTabla() {
+  const { calculationMode, language, jurisdiction } = useEngineeringSettings();
+  const completeMode = calculationMode === 'complete-engineering';
   const [open, setOpen] = useState(true);
-  const [refrigerant, setRefrigerant] = useState<'R32' | 'R410A' | 'R134a'>('R32');
+  const [refrigerant, setRefrigerant] = useState<RefrigerantId>('R32');
   const [pressure, setPressure] = useState('');
-  const [unit, setUnit] = useState<'bar' | 'kPa' | 'Pa' | 'psig'>('bar');
+  const [unit, setUnit] = useState<PtPressureUnit>('bar');
+  const [basis, setBasis] = useState<PressureBasis>('gauge');
+  const [atmosphericBar, setAtmosphericBar] = useState('1.01325');
+  const [pressureInstrument, setPressureInstrument] = useState('');
+  const [refrigerantEvidence, setRefrigerantEvidence] = useState('');
 
-  const REFRIGERANTS: Array<'R32' | 'R410A' | 'R134a'> = ['R32', 'R410A', 'R134a'];
-  const UNITS: Array<'bar' | 'kPa' | 'Pa' | 'psig'> = ['bar', 'kPa', 'Pa', 'psig'];
+  const REFRIGERANTS = Object.keys(PT_SATURATION_DATA) as RefrigerantId[];
+  const UNITS: PtPressureUnit[] = ['bar', 'kPa', 'MPa', 'psi'];
 
   const result = useMemo(() => {
     const v = parseFloat(pressure);
-    if (isNaN(v) || v <= 0) return null;
-    const pBar = toBar(v, unit);
-    const table = PT_DATA[refrigerant];
-    return interpolatePT(table, pBar);
-  }, [pressure, unit, refrigerant]);
+    const atm = parseFloat(atmosphericBar.replace(',', '.'));
+    if (isNaN(v) || v < 0 || isNaN(atm) || atm <= 0) return null;
+    const absoluteBar = pressureToAbsoluteBar(v, unit, basis, atm);
+    const bubble = saturationTemperature(refrigerant, absoluteBar, 'bubble');
+    const dew = saturationTemperature(refrigerant, absoluteBar, 'dew');
+    return { absoluteBar, bubble, dew, outOfRange: bubble === null || dew === null };
+  }, [pressure, unit, basis, atmosphericBar, refrigerant]);
+  const ptRequired: Array<readonly [string, string]> = completeMode ? [['pressureInstrument', pressureInstrument], ['refrigerantEvidence', refrigerantEvidence]] : [];
+  const ptMissing = ptRequired.filter(([, value]) => !value.trim()).map(([key]) => key);
+  const ptQuality = classifyCalculationQuality({
+    mode: completeMode ? 'complete-inputs' : 'guided-estimate', methodId: 'coolprop-pt-interpolation', methodVersion: '2.0.0',
+    requiredInputCount: completeMode ? 6 : 4, suppliedRequiredInputCount: completeMode ? 6 - ptMissing.length : 4,
+    assumedInputKeys: completeMode ? [] : ['instrumentAccuracyNotDocumented', 'refrigerantIdentityUserSelected'], missingRequiredInputKeys: ptMissing,
+    sources: [{ kind: 'engineering-reference', title: 'CoolProp 8.0.0 telítési tulajdonságadatok' }], verificationRequired: 'manufacturer-document',
+  });
 
   return (
     <View style={styles.card}>
@@ -453,7 +516,7 @@ function PtTabla() {
       {open && (
         <View style={styles.cardBody}>
           <Text style={styles.label}>Hűtőközeg</Text>
-          <View style={styles.segmentRow}>
+          <View style={[styles.segmentRow, { flexWrap: 'wrap' }]}>
             {REFRIGERANTS.map(r => (
               <TouchableOpacity
                 key={r}
@@ -461,7 +524,16 @@ function PtTabla() {
                 onPress={() => { console.log('[Hűtéstechnika] PT tábla refrigerant:', r); setRefrigerant(r); }}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.segmentText, refrigerant === r && styles.segmentTextActive]}>{r}</Text>
+                <Text style={[styles.segmentText, refrigerant === r && styles.segmentTextActive]}>{REFRIGERANT_LABELS[r]}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>A műszeren kijelzett nyomás</Text>
+          <View style={styles.segmentRow}>
+            {([['gauge', 'Relatív / manométeres'], ['absolute', 'Abszolút']] as const).map(([value, label]) => (
+              <TouchableOpacity key={value} style={[styles.segmentBtn, basis === value && styles.segmentBtnActive]} onPress={() => setBasis(value)} activeOpacity={0.7}>
+                <Text style={[styles.segmentText, basis === value && styles.segmentTextActive]}>{label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -486,27 +558,57 @@ function PtTabla() {
             value={pressure}
             onChangeText={v => { console.log('[Hűtéstechnika] PT tábla nyomás input:', v); setPressure(v); }}
             keyboardType="numeric"
-            placeholder={unit === 'bar' ? 'pl. 10.5' : unit === 'kPa' ? 'pl. 1050' : unit === 'psig' ? 'pl. 137' : 'pl. 1050000'}
+            placeholder={unit === 'bar' ? 'pl. 10,5' : unit === 'kPa' ? 'pl. 1050' : unit === 'MPa' ? 'pl. 1,05' : 'pl. 152'}
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
+          {basis === 'gauge' && <>
+            <Text style={styles.label}>Helyi légköri nyomás (bar abs.)</Text>
+            <TextInput style={styles.inputLarge} value={atmosphericBar} onChangeText={setAtmosphericBar} keyboardType="numeric" placeholder="1,01325" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+          </>}
+          {completeMode && <>
+            <Text style={styles.label}>Nyomásmérő azonosító / pontosság / kalibrálás</Text><TextInput style={styles.inputLarge} value={pressureInstrument} onChangeText={setPressureInstrument} placeholder="pl. digitális manifold, bizonylat" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+            <Text style={styles.label}>A hűtőközeg azonosításának bizonyítéka</Text><TextInput style={styles.inputLarge} value={refrigerantEvidence} onChangeText={setRefrigerantEvidence} placeholder="adattábla / szervizdokumentum / analizátor" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+          </>}
+
           <View style={styles.resultBox}>
             <ResultRow
-              label="Telítési hőmérséklet"
-              value={result?.outOfRange ? 'Tartományon kívül' : (result?.temp ?? '—')}
-              unit={(!result?.outOfRange && result?.temp) ? '°C' : undefined}
-              highlight={result?.outOfRange ? HVAC_YELLOW : (result?.temp ? HVAC_CYAN : undefined)}
+              label="Telítési hőmérséklet – buborékpont"
+              value={result?.outOfRange ? 'Tartományon kívül' : result?.bubble?.toFixed(1) ?? '—'}
+              unit={!result?.outOfRange && result?.bubble != null ? '°C' : undefined}
+              highlight={result?.outOfRange ? HVAC_YELLOW : result?.bubble != null ? HVAC_CYAN : undefined}
             />
             <ResultRow
-              label="Adat forrása"
-              value={result === null ? '—' : result.outOfRange ? '—' : result.exact ? 'Táblapont egyezés' : 'Interpolált érték'}
-              highlight={result === null || result.outOfRange ? undefined : result.exact ? HVAC_GREEN : HVAC_BLUE}
+              label="Telítési hőmérséklet – harmatpont"
+              value={result?.outOfRange ? 'Tartományon kívül' : result?.dew?.toFixed(1) ?? '—'}
+              unit={!result?.outOfRange && result?.dew != null ? '°C' : undefined}
+              highlight={result?.outOfRange ? HVAC_YELLOW : result?.dew != null ? HVAC_CYAN : undefined}
             />
+            <ResultRow label="Számításhoz használt abszolút nyomás" value={result ? result.absoluteBar.toFixed(4) : '—'} unit={result ? 'bar abs.' : undefined} />
           </View>
 
           <Text style={styles.noteText}>
-            Telítési görbe alapján (abszolút nyomás). psig: 1,01325 bar atmoszferikus nyomással számolva.
+            CoolProp 8.0.0 telítési adatok, 0,5 K-es táblából interpolálva. Túlhevítéshez harmatpontot, utóhűtéshez buborékpontot használj. A program a relatív nyomást előbb abszolút nyomásra alakítja.
           </Text>
+          {result && !result.outOfRange && result.bubble != null && result.dew != null && <CalculationReportButton buildRecord={() => ({
+            toolId: 'pt-table', toolTitle: 'Nyomás–hőmérséklet (PT)', language, jurisdiction,
+            method: { id: ptQuality.methodId, version: ptQuality.methodVersion, name: 'Hűtőközeg telítési hőmérséklete', formulaSummary: 'Relatív nyomás abszolútra alakítása és lineáris interpoláció a 0,5 K felbontású CoolProp telítési táblában; keverékeknél külön buborék- és harmatpont.' },
+            inputs: [
+              { key: 'refrigerant', label: 'Hűtőközeg', value: refrigerant, origin: completeMode ? 'measured' : 'selected-typical' },
+              { key: 'pressure', label: 'Mért nyomás', value: numeric(pressure), unit, origin: 'measured' },
+              { key: 'pressureBasis', label: 'Nyomásalap', value: basis, origin: 'measured' },
+              { key: 'atmosphericPressure', label: 'Légköri nyomás', value: basis === 'gauge' ? numeric(atmosphericBar) : null, unit: 'bar abs.', origin: basis === 'gauge' ? 'measured' : 'missing' },
+              ...ptRequired.map(([key, value]) => ({ key, label: key, value: value || null, origin: value ? 'measured' as const : 'missing' as const })),
+            ],
+            outputs: [
+              { key: 'absolutePressure', label: 'Abszolút nyomás', value: Number(result.absoluteBar.toFixed(5)), unit: 'bar abs.', origin: 'calculated' },
+              { key: 'bubbleTemperature', label: 'Buborékpont', value: Number(result.bubble!.toFixed(2)), unit: '°C', origin: 'calculated' },
+              { key: 'dewTemperature', label: 'Harmatpont', value: Number(result.dew!.toFixed(2)), unit: '°C', origin: 'calculated' },
+            ],
+            assumptions: ptQuality.assumedInputKeys, sources: ptQuality.sources, quality: ptQuality,
+            complianceState: `${jurisdictionName(jurisdiction)} · ${jurisdictionStatusLabel(jurisdictionStatus(jurisdiction))}`,
+            requiredVerification: ['Hűtőközeg tényleges azonosítása', 'Nyomásmérő nullpontjának és kalibrálásának ellenőrzése'],
+          })} />}
         </View>
       )}
     </View>
@@ -516,26 +618,33 @@ function PtTabla() {
 // ─── 5. Túlhevítés / utóhűtés ────────────────────────────────────────────────
 
 function TulhevitesUtohutes() {
+  const { calculationMode, language, jurisdiction } = useEngineeringSettings();
+  const completeMode = calculationMode === 'complete-engineering';
   const [open, setOpen] = useState(true);
   const [mode, setMode] = useState<'SH' | 'SC'>('SH');
-  const [refrigerant, setRefrigerant] = useState<'R32' | 'R410A' | 'R134a'>('R32');
+  const [refrigerant, setRefrigerant] = useState<RefrigerantId>('R32');
   const [pressure, setPressure] = useState('');
-  const [pressureUnit, setPressureUnit] = useState<'bar' | 'kPa' | 'Pa' | 'psig'>('bar');
+  const [pressureUnit, setPressureUnit] = useState<PtPressureUnit>('bar');
+  const [pressureBasis, setPressureBasis] = useState<PressureBasis>('gauge');
+  const [atmosphericBar, setAtmosphericBar] = useState('1,01325');
   const [pipeTemp, setPipeTemp] = useState('');
+  const [pressureInstrument, setPressureInstrument] = useState('');
+  const [temperatureInstrument, setTemperatureInstrument] = useState('');
+  const [manufacturerTarget, setManufacturerTarget] = useState('');
+  const [manufacturerReference, setManufacturerReference] = useState('');
 
-  const REFRIGERANTS: Array<'R32' | 'R410A' | 'R134a'> = ['R32', 'R410A', 'R134a'];
-  const PUNITS: Array<'bar' | 'kPa' | 'Pa' | 'psig'> = ['bar', 'kPa', 'Pa', 'psig'];
+  const REFRIGERANTS = Object.keys(PT_SATURATION_DATA) as RefrigerantId[];
+  const PUNITS: PtPressureUnit[] = ['bar', 'kPa', 'MPa', 'psi'];
 
   const result = useMemo(() => {
-    const p = parseFloat(pressure);
-    const t = parseFloat(pipeTemp);
-    if (isNaN(p) || p <= 0 || isNaN(t)) return null;
-
-    const pBar = toBar(p, pressureUnit);
-    const ptResult = interpolatePT(PT_DATA[refrigerant], pBar);
-    if (ptResult.outOfRange || !ptResult.temp) return { outOfRange: true };
-
-    const tSat = parseFloat(ptResult.temp);
+    const p = numeric(pressure);
+    const t = numeric(pipeTemp);
+    const atm = numeric(atmosphericBar);
+    if (!Number.isFinite(p) || p < 0 || !Number.isFinite(t) || !Number.isFinite(atm) || atm <= 0) return null;
+    const absoluteBar = pressureToAbsoluteBar(p, pressureUnit, pressureBasis, atm);
+    const tSatValue = saturationTemperature(refrigerant, absoluteBar, mode === 'SH' ? 'dew' : 'bubble');
+    if (tSatValue == null) return { outOfRange: true };
+    const tSat = tSatValue;
     const delta = mode === 'SH' ? t - tSat : tSat - t;
 
     let quality: string;
@@ -559,7 +668,23 @@ function TulhevitesUtohutes() {
       quality,
       qualityColor,
     };
-  }, [pressure, pressureUnit, pipeTemp, refrigerant, mode]);
+  }, [pressure, pressureUnit, pressureBasis, atmosphericBar, pipeTemp, refrigerant, mode]);
+
+  const shscRequired: Array<readonly [string, string]> = completeMode ? [
+    ['pressureInstrument', pressureInstrument], ['temperatureInstrument', temperatureInstrument],
+    ['manufacturerTarget', manufacturerTarget], ['manufacturerReference', manufacturerReference],
+  ] as const : [];
+  const shscMissing = shscRequired.filter(([, value]) => !value.trim()).map(([key]) => key);
+  const shscQuality = classifyCalculationQuality({
+    mode: completeMode ? 'complete-inputs' : 'guided-estimate', methodId: 'superheat-subcool-from-pt', methodVersion: '2.0.0',
+    requiredInputCount: completeMode ? 9 : 5, suppliedRequiredInputCount: completeMode ? 9 - shscMissing.length : 5,
+    assumedInputKeys: completeMode ? [] : ['genericTargetRange', 'instrumentAccuracyNotDocumented'], missingRequiredInputKeys: shscMissing,
+    sources: [
+      { kind: 'engineering-reference', title: 'CoolProp 8.0.0 telítési tulajdonságadatok' },
+      ...(manufacturerReference ? [{ kind: 'manufacturer' as const, title: manufacturerReference }] : []),
+    ], verificationRequired: 'manufacturer-document',
+    manufacturerProductConfirmed: completeMode && !!manufacturerReference, manufacturerRangeConfirmed: completeMode && !!manufacturerTarget,
+  });
 
   const modeLabel = mode === 'SH' ? 'Túlhevítés' : 'Utóhűtés';
   const pipeTempLabel = mode === 'SH' ? 'Szívócső hőmérséklete (°C)' : 'Folyékonyvezeték hőmérséklete (°C)';
@@ -582,7 +707,7 @@ function TulhevitesUtohutes() {
       {open && (
         <View style={styles.cardBody}>
           {/* Mode toggle */}
-          <View style={styles.segmentRow}>
+          <View style={[styles.segmentRow, { flexWrap: 'wrap' }]}>
             {(['SH', 'SC'] as const).map(m => (
               <TouchableOpacity
                 key={m}
@@ -607,9 +732,14 @@ function TulhevitesUtohutes() {
                 onPress={() => { console.log('[Hűtéstechnika] SH/SC refrigerant:', r); setRefrigerant(r); }}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.segmentText, refrigerant === r && styles.segmentTextActive]}>{r}</Text>
+                <Text style={[styles.segmentText, refrigerant === r && styles.segmentTextActive]}>{REFRIGERANT_LABELS[r]}</Text>
               </TouchableOpacity>
             ))}
+          </View>
+
+          <Text style={styles.label}>A műszer nyomásalapja</Text>
+          <View style={styles.segmentRow}>
+            {([['gauge', 'Relatív / manométeres'], ['absolute', 'Abszolút']] as const).map(([value, label]) => <TouchableOpacity key={value} style={[styles.segmentBtn, pressureBasis === value && styles.segmentBtnActive]} onPress={() => setPressureBasis(value)} activeOpacity={0.7}><Text style={[styles.segmentText, pressureBasis === value && styles.segmentTextActive]}>{label}</Text></TouchableOpacity>)}
           </View>
 
           {/* Pressure unit */}
@@ -636,9 +766,18 @@ function TulhevitesUtohutes() {
             value={pressure}
             onChangeText={v => { console.log('[Hűtéstechnika] SH/SC nyomás input:', v); setPressure(v); }}
             keyboardType="numeric"
-            placeholder={pressureUnit === 'bar' ? 'pl. 8.5' : pressureUnit === 'kPa' ? 'pl. 850' : pressureUnit === 'psig' ? 'pl. 108' : 'pl. 850000'}
+            placeholder={pressureUnit === 'bar' ? 'pl. 8,5' : pressureUnit === 'kPa' ? 'pl. 850' : pressureUnit === 'MPa' ? 'pl. 0,85' : 'pl. 123'}
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
+
+          {completeMode && <>
+            <Text style={styles.label}>Nyomásmérő azonosító / kalibrálás</Text><TextInput style={styles.inputLarge} value={pressureInstrument} onChangeText={setPressureInstrument} placeholder="műszer és bizonylat" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+            <Text style={styles.label}>Csőhőmérő azonosító / kalibrálás</Text><TextInput style={styles.inputLarge} value={temperatureInstrument} onChangeText={setTemperatureInstrument} placeholder="műszer és bizonylat" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+            <Text style={styles.label}>Gyártói célérték vagy céltartomány (K)</Text><TextInput style={styles.inputLarge} value={manufacturerTarget} onChangeText={setManufacturerTarget} placeholder="pl. 6–10 K" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+            <Text style={styles.label}>Gyártói dokumentum / modell / üzemállapot</Text><TextInput style={styles.inputLarge} value={manufacturerReference} onChangeText={setManufacturerReference} placeholder="dokumentum és táblázati pont" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+          </>}
+
+          {pressureBasis === 'gauge' && <><Text style={styles.label}>Helyi légköri nyomás (bar abs.)</Text><TextInput style={styles.inputLarge} value={atmosphericBar} onChangeText={setAtmosphericBar} keyboardType="numeric" placeholder="1,01325" placeholderTextColor={HVAC_TEXT_SECONDARY} /></>}
 
           {/* Pipe temp input */}
           <Text style={styles.label}>{pipeTempLabel}</Text>
@@ -674,9 +813,29 @@ function TulhevitesUtohutes() {
 
           <Text style={styles.noteText}>
             {mode === 'SH'
-              ? 'SH = szívócső hőm. − telítési hőm. Normál tartomány: 5–12 K.'
-              : 'SC = telítési hőm. − folyékonyvezeték hőm. Normál tartomány: 3–10 K.'}
+              ? 'SH = szívócső hőmérséklete − harmatpont. Az 5–12 K csak általános iránytartomány; a gyártó adott üzemállapotra előírt célértéke az elsődleges.'
+              : 'SC = buborékpont − folyadékcső hőmérséklete. A 3–10 K csak általános iránytartomány; a gyártó adott üzemállapotra előírt célértéke az elsődleges.'}
           </Text>
+          {result && !result.outOfRange && result.tSat && result.delta && <CalculationReportButton buildRecord={() => ({
+            toolId: 'superheat-subcool', toolTitle: modeLabel, language, jurisdiction,
+            method: { id: shscQuality.methodId, version: shscQuality.methodVersion, name: mode === 'SH' ? 'Túlhevítés meghatározása' : 'Utóhűtés meghatározása', formulaSummary: mode === 'SH' ? 'SH = mért szívócső-hőmérséklet − nyomásból számolt harmatpont.' : 'SC = nyomásból számolt buborékpont − mért folyadékcső-hőmérséklet.' },
+            inputs: [
+              { key: 'refrigerant', label: 'Hűtőközeg', value: refrigerant, origin: completeMode ? 'measured' : 'selected-typical' },
+              { key: 'pressure', label: mode === 'SH' ? 'Szívónyomás' : 'Kondenzációs nyomás', value: numeric(pressure), unit: pressureUnit, origin: 'measured' },
+              { key: 'pressureBasis', label: 'Nyomásalap', value: pressureBasis, origin: 'measured' },
+              { key: 'atmosphericPressure', label: 'Légköri nyomás', value: numeric(atmosphericBar), unit: 'bar abs.', origin: 'measured' },
+              { key: 'pipeTemperature', label: pipeTempLabel, value: numeric(pipeTemp), unit: '°C', origin: 'measured' },
+              ...shscRequired.map(([key, value]) => ({ key, label: key, value: value || null, origin: key.startsWith('manufacturer') && value ? 'manufacturer' as const : value ? 'measured' as const : 'missing' as const })),
+            ],
+            outputs: [
+              { key: 'saturationTemperature', label: 'Telítési hőmérséklet', value: Number(result.tSat), unit: '°C', origin: 'calculated' },
+              { key: 'delta', label: modeLabel, value: Number(result.delta), unit: 'K', origin: 'calculated' },
+              { key: 'assessment', label: 'Értékelés', value: completeMode && manufacturerTarget ? `A gyártói ${manufacturerTarget} K tartományhoz ellenőrizendő` : result.quality ?? null, origin: 'calculated' },
+            ],
+            assumptions: shscQuality.assumedInputKeys, sources: shscQuality.sources, quality: shscQuality,
+            complianceState: `${jurisdictionName(jurisdiction)} · ${jurisdictionStatusLabel(jurisdictionStatus(jurisdiction))}`,
+            requiredVerification: ['Stabil üzemállapot igazolása', 'Mérési pontok megfelelő rögzítése és hőszigetelése', 'Gyártói célérték összevetése az aktuális terhelési állapottal'],
+          })} />}
         </View>
       )}
     </View>
@@ -1316,12 +1475,15 @@ export default function HutestechnikaScreen() {
         </TouchableOpacity>
 
         <Text style={styles.screenTitle}>{tool ? 'Hűtőkör számítás' : 'Hűtéstechnika'}</Text>
-        {tool === 'pt-table' && <><ToolGuide title="Nyomás–hőmérséklet (PT)" useWhen="A mért hűtőközeg-nyomáshoz tartozó telítési hőmérsékletet keresed." needs="Hűtőközeg, nyomásérték, mértékegység, valamint hogy relatív vagy abszolút nyomásról van-e szó." accuracy="engineering" accuracyNote="A helyes buborék-/harmatpont és nyomásalap kiválasztása döntő." /><PtTabla /></>}
-        {tool === 'superheat-subcool' && <><ToolGuide title="Túlhevítés és utóhűtés" useWhen="A hűtőkör állapotát a telítési és csőhőmérséklet különbségével ellenőrzöd." needs="Hűtőközeg, megfelelő oldali nyomás és ugyanazon ponton mért csőhőmérséklet." accuracy="engineering" /><TulhevitesUtohutes /></>}
-        {tool === 'pressure-test' && <><ToolGuide title="Nyomáspróba hőmérséklet-korrekció" useWhen="A nitrogénes nyomáspróba értékeit eltérő hőmérsékleten hasonlítod össze." needs="Kezdő relatív nyomás, kezdő és jelenlegi hőmérséklet, lehetőleg helyi légköri nyomás." accuracy="engineering" accuracyNote="Ideális gázon alapuló korrekció; a rendszer hőkiegyenlítődése és a műszer pontossága befolyásolja." /><Nyomaspróba /></>}
-        {tool === 'split-sizing' && <><ToolGuide title="Split klíma gyors méretezése" useWhen="Előzetesen szeretnéd megbecsülni egy helyiség hűtési igényét." needs="Helyiségméretek, szerkezetek, ablakok, tájolás, belső hőterhelések és tervezési hőmérsékletek." accuracy="estimate" accuracyNote="Ez előméretezés; hiányos épületszerkezeti adatoknál nem helyettesít teljes hőterhelés-számítást." /><SplitGyorsmerezezo /></>}
+
+        {tool === 'pt-table' && <><ToolGuide title="Nyomás–hőmérséklet (PT)" useWhen="A mért hűtőközeg-nyomáshoz tartozó telítési hőmérsékletet keresed." needs="Válaszd ki a hűtőközeget, a műszer nyomásegységét és azt, hogy relatív/manométeres vagy abszolút értéket mutat; majd írd be a nyomást." accuracy="engineering" accuracyNote="CoolProp 8.0.0 telítési adatok 0,5 K-es táblából interpolálva, keverékeknél külön buborék- és harmatponttal, extrapoláció nélkül." /><PtTabla /></>}
+        {tool === 'superheat-subcool' && <><ToolGuide title="Túlhevítés és utóhűtés" useWhen="A hűtőkör állapotát a nyomásból számolt telítési hőmérséklet és a csövön mért hőmérséklet különbségével ellenőrzöd." needs="Hűtőközeg, szívó- vagy folyadékoldali nyomás és ugyanazon ponton helyesen mért csőhőmérséklet." accuracy="engineering" /><TulhevitesUtohutes /></>}
+        {tool === 'pressure-test' && <><ToolGuide title="Nyomáspróba hőmérséklet-korrekció" useWhen="Meg akarod tudni, hogy a kezdő nyomásnak a megváltozott hőmérsékleten elméletileg mekkorának kell lennie, majd ezt összehasonlítanád a műszerrel." needs="Kezdő relatív nyomás, kezdő és jelenlegi hőmérséklet. A tényleges végnyomás csak az összehasonlításhoz kell; az eltelt idő nem része a képletnek." accuracy="engineering" accuracyNote="Abszolút nyomással és Kelvinben végzett ideálisgáz-korrekció. A mérési eltérés külön, általad beállítható; nem önkényes szivárgási határ." /><Nyomaspróba /></>}
+        {tool === 'split-sizing' && <><ToolGuide title="Mekkora klímaberendezés kell?" useWhen="Egy helyiség hűtési hőterhelését szeretnéd tételesen előméretezni, nem egyszerű W/m² ökölszabállyal." needs="Alapterület, belmagasság, fal és szigetelés, szint/tető, ablak típusa és mérete, tájolás, árnyékolás, létszám és gépterhelés." accuracy="engineering-estimate" accuracyNote="Elfogadott hőtechnikai összefüggésekből készülő tételes előméretezés. Pontos rétegrend és órás meteorológiai adatok nélkül nem teljes tervezői hűtésterhelés-számítás." /><HeatLoadWizard /></>}
+
         {!tool && <>
         <TeljesitmenyAtvalto /><CopEer /><Nyomaspróba /><PtTabla /><TulhevitesUtohutes /><HutokörGyorsEllenorzes />
+
         {/* Méretezés section */}
         <Text style={{ fontSize: 18, fontWeight: '700', color: HVAC_TEXT, marginTop: 16, marginBottom: 12, letterSpacing: -0.2 }}>
           Méretezés

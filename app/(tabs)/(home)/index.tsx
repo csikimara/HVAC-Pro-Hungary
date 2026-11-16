@@ -3,6 +3,7 @@ import { ScrollView, View, Text, TouchableOpacity, TextInput } from 'react-nativ
 import { useRouter } from 'expo-router';
 import { ChevronDown, ChevronUp, Search, Star } from 'lucide-react-native';
 import { TASK_GROUPS } from '@/constants/toolCatalog';
+import { EngineeringModeBanner } from '@/components/EngineeringModeBanner';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -39,15 +40,16 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={{ paddingTop: 58, paddingBottom: 22 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-          <Text style={{ fontSize: 28, fontWeight: '800', color: HVAC_TEXT }}>HVAC Pro</Text>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: HVAC_BLUE }}>Hungary</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: 6, paddingRight: 58 }}><Text style={{ fontSize: 28, fontWeight: '800', color: HVAC_TEXT }}>HVAC Pro</Text><Text style={{ fontSize: 16, fontWeight: '700', color: HVAC_BLUE }}>Europe</Text></View>
         </View>
         <Text style={{ fontSize: 24, fontWeight: '800', color: HVAC_TEXT, marginTop: 22 }}>Mit szeretnél megoldani?</Text>
         <Text style={{ fontSize: 15, color: HVAC_TEXT_SECONDARY, lineHeight: 21, marginTop: 6 }}>
           Válaszd ki a helyszíni feladatot. Az app megmondja, mit kell megadnod és milyen pontosságú az eredmény.
         </Text>
       </View>
+
+      <EngineeringModeBanner />
 
       <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1C2128', borderColor: HVAC_BORDER, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, marginBottom: 16 }}>
         <Search size={20} color={HVAC_TEXT_SECONDARY} />

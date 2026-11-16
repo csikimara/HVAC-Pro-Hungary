@@ -10,6 +10,7 @@ import {
 import { ChevronDown, ChevronUp, ChevronLeft, Zap, Activity, Cpu, Calculator, Receipt, ToggleLeft, Home } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ToolGuide } from '@/components/AccuracyNotice';
+import { balancedThreePhasePower, singlePhasePower, type PowerFactorInputKind } from '@/domain/electricalPower';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -182,12 +183,14 @@ function SinglePhasePower() {
   const [U, setU] = useState('230');
   const [I, setI] = useState('');
   const [cosP, setCosP] = useState('0.85');
+  const [factorKind, setFactorKind] = useState<PowerFactorInputKind>('true-pf');
 
   type SinglePhaseResult = {
     S_VA: string; S_kVA: string;
     P_W: string; P_kW: string;
-    Q_VAr: string; Q_kVAr: string;
-    cosPhi: string;
+    Q_VAr: string | null; Q_kVAr: string | null;
+    nonActive_VA: string;
+    factor: string;
   };
   const [result, setResult] = useState<SinglePhaseResult | null>(null);
 
@@ -202,18 +205,20 @@ function SinglePhasePower() {
       return;
     }
 
-    const S = uVal * iVal;
-    const P = S * cosPVal;
-    const Q = Math.sqrt(Math.max(0, S * S - P * P));
+    const calculated = singlePhasePower(uVal, iVal, cosPVal, factorKind);
+    if (!calculated) { setResult(null); return; }
+    const S = calculated.apparentPowerVA;
+    const P = calculated.activePowerW;
 
     setResult({
       S_VA: Math.round(S).toString(),
       S_kVA: (S / 1000).toFixed(3),
       P_W: Math.round(P).toString(),
       P_kW: (P / 1000).toFixed(3),
-      Q_VAr: Math.round(Q).toString(),
-      Q_kVAr: (Q / 1000).toFixed(3),
-      cosPhi: cosPVal.toFixed(3),
+      Q_VAr: calculated.reactivePowerVAr == null ? null : Math.round(calculated.reactivePowerVAr).toString(),
+      Q_kVAr: calculated.reactivePowerVAr == null ? null : (calculated.reactivePowerVAr / 1000).toFixed(3),
+      nonActive_VA: Math.round(calculated.nonActivePowerVA).toString(),
+      factor: cosPVal.toFixed(3),
     });
   }
 
@@ -240,8 +245,13 @@ function SinglePhasePower() {
           <TextInput style={styles.input} value={U} onChangeText={setU} keyboardType="numeric" placeholder="230" placeholderTextColor={HVAC_TEXT_SECONDARY} />
           <Text style={styles.label}>Áramerősség I (A)</Text>
           <TextInput style={styles.input} value={I} onChangeText={setI} keyboardType="numeric" placeholder="pl. 10" placeholderTextColor={HVAC_TEXT_SECONDARY} />
-          <Text style={styles.label}>Teljesítménytényező cos φ</Text>
+          <Text style={styles.label}>Milyen adat áll rendelkezésre?</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+            {([['true-pf', 'Valódi PF – inverterhez'], ['displacement-cos-phi', 'cos φ – lineáris terheléshez']] as const).map(([kind, label]) => <TouchableOpacity key={kind} onPress={() => setFactorKind(kind)} style={{ flex: 1, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: factorKind === kind ? HVAC_BLUE : HVAC_BORDER, backgroundColor: factorKind === kind ? `${HVAC_BLUE}22` : HVAC_SURFACE }}><Text style={{ color: factorKind === kind ? HVAC_BLUE : HVAC_TEXT_SECONDARY, fontSize: 12, fontWeight: '800', textAlign: 'center' }}>{label}</Text></TouchableOpacity>)}
+          </View>
+          <Text style={styles.label}>{factorKind === 'true-pf' ? 'Valódi teljesítménytényező PF' : 'Eltolási tényező cos φ'}</Text>
           <TextInput style={styles.input} value={cosP} onChangeText={setCosP} keyboardType="numeric" placeholder="0.85" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+          <Text style={{ color: factorKind === 'true-pf' ? HVAC_YELLOW : HVAC_TEXT_SECONDARY, fontSize: 12, lineHeight: 18, marginBottom: 10 }}>{factorKind === 'true-pf' ? 'Inverteres vagy más nemlineáris fogyasztónál true-RMS feszültség/áram és valódi PF szükséges.' : 'Csak közel szinuszos, lineáris terheléshez. Itt a klasszikus meddő teljesítmény is számítható.'}</Text>
 
           <TouchableOpacity style={styles.calcBtn} onPress={calculate} activeOpacity={0.8}>
             <Text style={styles.calcBtnText}>Kiszámít</Text>
@@ -255,10 +265,9 @@ function SinglePhasePower() {
               <ResultRow label="Hatásos P" value={result.P_W} unit="W" highlight={HVAC_BLUE} />
               <ResultRow label="" value={result.P_kW} unit="kW" highlight={HVAC_BLUE} />
               <View style={styles.divider} />
-              <ResultRow label="Meddő Q" value={result.Q_VAr} unit="VAr" />
-              <ResultRow label="" value={result.Q_kVAr} unit="kVAr" />
+              {result.Q_VAr != null && result.Q_kVAr != null ? <><ResultRow label="Meddő Q" value={result.Q_VAr} unit="VAr" /><ResultRow label="" value={result.Q_kVAr} unit="kVAr" /></> : <ResultRow label="Nem aktív rész N" value={result.nonActive_VA} unit="VA" />}
               <View style={styles.divider} />
-              <ResultRow label="cos φ" value={result.cosPhi} unit="" />
+              <ResultRow label={factorKind === 'true-pf' ? 'PF' : 'cos φ'} value={result.factor} unit="" />
             </View>
           )}
         </View>
@@ -274,12 +283,14 @@ function ThreePhasePower() {
   const [Uv, setUv] = useState('400');
   const [I, setI] = useState('');
   const [cosP, setCosP] = useState('0.85');
+  const [factorKind, setFactorKind] = useState<PowerFactorInputKind>('true-pf');
 
   type ThreePhaseResult = {
     Uf: string;
     S_VA: string; S_kVA: string;
     P_W: string; P_kW: string;
-    Q_VAr: string; Q_kVAr: string;
+    Q_VAr: string | null; Q_kVAr: string | null;
+    nonActive_VA: string;
   };
   const [result, setResult] = useState<ThreePhaseResult | null>(null);
 
@@ -296,9 +307,10 @@ function ThreePhasePower() {
       return;
     }
 
-    const S = SQRT3 * uvVal * iVal;
-    const P = S * cosPVal;
-    const Q = Math.sqrt(Math.max(0, S * S - P * P));
+    const calculated = balancedThreePhasePower(uvVal, iVal, cosPVal, factorKind);
+    if (!calculated) { setResult(null); return; }
+    const S = calculated.apparentPowerVA;
+    const P = calculated.activePowerW;
     const Uf = uvVal / SQRT3;
 
     setResult({
@@ -307,8 +319,9 @@ function ThreePhasePower() {
       S_kVA: (S / 1000).toFixed(3),
       P_W: Math.round(P).toString(),
       P_kW: (P / 1000).toFixed(3),
-      Q_VAr: Math.round(Q).toString(),
-      Q_kVAr: (Q / 1000).toFixed(3),
+      Q_VAr: calculated.reactivePowerVAr == null ? null : Math.round(calculated.reactivePowerVAr).toString(),
+      Q_kVAr: calculated.reactivePowerVAr == null ? null : (calculated.reactivePowerVAr / 1000).toFixed(3),
+      nonActive_VA: Math.round(calculated.nonActivePowerVA).toString(),
     });
   }
 
@@ -335,8 +348,13 @@ function ThreePhasePower() {
           <TextInput style={styles.input} value={Uv} onChangeText={setUv} keyboardType="numeric" placeholder="400" placeholderTextColor={HVAC_TEXT_SECONDARY} />
           <Text style={styles.label}>Áramerősség I (A)</Text>
           <TextInput style={styles.input} value={I} onChangeText={setI} keyboardType="numeric" placeholder="pl. 16" placeholderTextColor={HVAC_TEXT_SECONDARY} />
-          <Text style={styles.label}>Teljesítménytényező cos φ</Text>
+          <Text style={styles.label}>Milyen adat áll rendelkezésre?</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+            {([['true-pf', 'Valódi PF – inverterhez'], ['displacement-cos-phi', 'cos φ – lineáris terheléshez']] as const).map(([kind, label]) => <TouchableOpacity key={kind} onPress={() => setFactorKind(kind)} style={{ flex: 1, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: factorKind === kind ? HVAC_BLUE : HVAC_BORDER, backgroundColor: factorKind === kind ? `${HVAC_BLUE}22` : HVAC_SURFACE }}><Text style={{ color: factorKind === kind ? HVAC_BLUE : HVAC_TEXT_SECONDARY, fontSize: 12, fontWeight: '800', textAlign: 'center' }}>{label}</Text></TouchableOpacity>)}
+          </View>
+          <Text style={styles.label}>{factorKind === 'true-pf' ? 'Valódi teljesítménytényező PF' : 'Eltolási tényező cos φ'}</Text>
           <TextInput style={styles.input} value={cosP} onChangeText={setCosP} keyboardType="numeric" placeholder="0.85" placeholderTextColor={HVAC_TEXT_SECONDARY} />
+          <Text style={{ color: factorKind === 'true-pf' ? HVAC_YELLOW : HVAC_TEXT_SECONDARY, fontSize: 12, lineHeight: 18, marginBottom: 10 }}>{factorKind === 'true-pf' ? 'Szimmetrikus háromfázisú terhelést feltételez. Inverterhez true-RMS mérés és valódi PF kell.' : 'Szimmetrikus és közel szinuszos terheléshez használható.'}</Text>
 
           <TouchableOpacity style={styles.calcBtn} onPress={calculate} activeOpacity={0.8}>
             <Text style={styles.calcBtnText}>Kiszámít</Text>
@@ -352,8 +370,7 @@ function ThreePhasePower() {
               <ResultRow label="Hatásos P" value={result.P_W} unit="W" highlight={HVAC_BLUE} />
               <ResultRow label="" value={result.P_kW} unit="kW" highlight={HVAC_BLUE} />
               <View style={styles.divider} />
-              <ResultRow label="Meddő Q" value={result.Q_VAr} unit="VAr" />
-              <ResultRow label="" value={result.Q_kVAr} unit="kVAr" />
+              {result.Q_VAr != null && result.Q_kVAr != null ? <><ResultRow label="Meddő Q" value={result.Q_VAr} unit="VAr" /><ResultRow label="" value={result.Q_kVAr} unit="kVAr" /></> : <ResultRow label="Nem aktív rész N" value={result.nonActive_VA} unit="VA" />}
             </View>
           )}
         </View>
@@ -495,6 +512,7 @@ function TeljesitmenyKalkulator() {
   const [uInput, setUInput] = useState('');
   const [iInput, setIInput] = useState('');
   const [cosInput, setCosInput] = useState('');
+  const [factorKind, setFactorKind] = useState<PowerFactorInputKind>('true-pf');
 
   const result = useMemo(() => {
     const u   = parseFloat(uInput);
@@ -503,17 +521,18 @@ function TeljesitmenyKalkulator() {
     if (isNaN(u) || u <= 0 || isNaN(i) || i <= 0) return null;
     const cosPhi = (!isNaN(cos) && cos > 0 && cos <= 1) ? cos : null;
 
-    const factor = phase === '3f' ? Math.sqrt(3) : 1;
-    const S = factor * u * i;
-    const P = cosPhi !== null ? S * cosPhi : null;
-    const Q = P !== null ? Math.sqrt(Math.max(0, S * S - P * P)) : null;
+    const calculated = cosPhi !== null
+      ? phase === '3f' ? balancedThreePhasePower(u, i, cosPhi, factorKind) : singlePhasePower(u, i, cosPhi, factorKind)
+      : null;
+    const S = phase === '3f' ? Math.sqrt(3) * u * i : u * i;
 
     return {
       S: Math.round(S).toString(),
-      P: P !== null ? Math.round(P).toString() : null,
-      Q: Q !== null ? Math.round(Q).toString() : null,
+      P: calculated ? Math.round(calculated.activePowerW).toString() : null,
+      Q: calculated?.reactivePowerVAr != null ? Math.round(calculated.reactivePowerVAr).toString() : null,
+      N: calculated ? Math.round(calculated.nonActivePowerVA).toString() : null,
     };
-  }, [uInput, iInput, cosInput, phase]);
+  }, [uInput, iInput, cosInput, phase, factorKind]);
 
   return (
     <View style={styles.card}>
@@ -566,7 +585,11 @@ function TeljesitmenyKalkulator() {
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
 
-          <Text style={styles.label}>Teljesítménytényező cos φ</Text>
+          <Text style={styles.label}>Teljesítménytényező fajtája</Text>
+          <View style={styles.segmentRow}>
+            {([['true-pf', 'Valódi PF'], ['displacement-cos-phi', 'cos φ']] as const).map(([kind, label]) => <TouchableOpacity key={kind} style={[styles.segmentBtn, factorKind === kind && styles.segmentBtnActive]} onPress={() => setFactorKind(kind)}><Text style={[styles.segmentText, factorKind === kind && styles.segmentBtnActiveText]}>{label}</Text></TouchableOpacity>)}
+          </View>
+          <Text style={styles.label}>{factorKind === 'true-pf' ? 'Valódi PF' : 'Eltolási tényező cos φ'}</Text>
           <TextInput
             style={styles.input}
             value={cosInput}
@@ -590,15 +613,15 @@ function TeljesitmenyKalkulator() {
               </Text>
             </View>
             <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Meddő Q</Text>
-              <Text style={[styles.resultValue, { color: result?.Q != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>
-                {result?.Q ?? '—'} <Text style={styles.resultUnit}>VAr</Text>
+              <Text style={styles.resultLabel}>{factorKind === 'true-pf' ? 'Nem aktív rész N' : 'Meddő Q'}</Text>
+              <Text style={[styles.resultValue, { color: (factorKind === 'true-pf' ? result?.N : result?.Q) != null ? HVAC_TEXT : HVAC_TEXT_SECONDARY }]}>
+                {factorKind === 'true-pf' ? result?.N ?? '—' : result?.Q ?? '—'} <Text style={styles.resultUnit}>{factorKind === 'true-pf' ? 'VA' : 'VAr'}</Text>
               </Text>
             </View>
           </View>
 
           <Text style={{ fontSize: 13, color: HVAC_TEXT_SECONDARY, lineHeight: 19, marginTop: 12 }}>
-            P és Q számításához add meg a cos φ értéket is (0–1 között).
+            Inverteres vagy más nemlineáris fogyasztónál valódi PF-et és true-RMS mérést használj. A cos φ mód csak közel szinuszos terhelésnél ad klasszikus Q értéket.
           </Text>
         </View>
       )}
@@ -740,8 +763,8 @@ export default function VillanyScreen() {
           <Home size={22} color="#60A5FA" />
         </TouchableOpacity>
         <Text style={styles.screenTitle}>{tool ? 'Villamos számítás' : 'Villany'}</Text>
-        {tool === 'single-phase' && <><ToolGuide title="Egyfázisú villamos teljesítmény" useWhen="Egy 230 V-os fogyasztó felvett hatásos teljesítményét szeretnéd meghatározni." needs="Mért feszültség, áram és a készülék teljesítménytényezője (cos φ)." accuracy="engineering" accuracyNote="A képlet pontos; az eredményt a mérés és a cos φ pontossága határozza meg." /><SinglePhasePower /></>}
-        {tool === 'three-phase' && <><ToolGuide title="Háromfázisú villamos teljesítmény" useWhen="Szimmetrikus háromfázisú fogyasztó hatásos teljesítményét ellenőrzöd." needs="Vonali feszültség, vonali áram és cos φ. Aszimmetrikus terhelésnél fázisonként kell mérni." accuracy="engineering" /><ThreePhasePower /></>}
+        {tool === 'single-phase' && <><ToolGuide title="Egyfázisú villamos teljesítmény" useWhen="Egy 230 V-os fogyasztó felvett hatásos teljesítményét szeretnéd meghatározni." needs="True-RMS feszültség és áram; inverteres berendezéshez valódi PF, lineáris terheléshez cos φ." accuracy="engineering" accuracyNote="A PF és a cos φ külön kezelhető. A pontosságot a mérőműszer és a megadott tényező határozza meg." /><SinglePhasePower /></>}
+        {tool === 'three-phase' && <><ToolGuide title="Háromfázisú villamos teljesítmény" useWhen="Szimmetrikus háromfázisú fogyasztó hatásos teljesítményét ellenőrzöd." needs="True-RMS vonali feszültség és áram; valódi PF vagy lineáris terhelésnél cos φ. Aszimmetrikus terhelésnél fázisonként kell mérni." accuracy="engineering" /><ThreePhasePower /></>}
         {!tool && <><OhmLawCalculator /><SinglePhasePower /><ThreePhasePower /><WVAKalkulator /><TeljesitmenyKalkulator /></>}
       </ScrollView>
     </View>

@@ -358,7 +358,7 @@ const POWER_TO_W: Record<PowerUnit, number> = {
   W: 1,
   kW: 1000,
   BTUh: 0.29307107,
-  kcalh: 1.16279,
+  kcalh: 1.163,
   HP: 745.7,
 };
 const POWER_UNITS: PowerUnit[] = ['W', 'kW', 'BTUh', 'kcalh', 'HP'];
@@ -806,14 +806,8 @@ export default function AtvaltoScreen() {
           <Home size={22} color="#60A5FA" />
         </TouchableOpacity>
         <Text style={styles.screenTitle}>{tool ? 'Gyors átváltás' : 'Átváltók'}</Text>
-        {tool === 'currency' && <>
-          <ToolGuide title="Valutaátváltó" useWhen="Egy összeget másik pénznemben szeretnél látni." needs="Összeg, kiinduló pénznem és célpénznem." accuracy="estimate" accuracyNote="Referenciaárfolyamot használ; a bank vagy kártyaszolgáltató tényleges árfolyama és díja eltérhet." />
-          <CurrencyConverter />
-        </>}
-        {tool === 'pressure' && <>
-          <ToolGuide title="Nyomás átváltása" useWhen="Ugyanazt a mért nyomást másik mértékegységben szeretnéd megkapni." needs="A mért érték, a jelenlegi és a kívánt mértékegység." accuracy="engineering" accuracyNote="Pontos mértékegység-átváltás. Az abszolút és relatív nyomás különbségét ez önmagában nem korrigálja." />
-          <PressureConverter />
-        </>}
+        {tool === 'currency' && <><ToolGuide title="Valutaátváltó" useWhen="Egy összeget másik pénznemben szeretnél látni." needs="Összeg, kiinduló pénznem és célpénznem." accuracy="estimate" accuracyNote="Referenciaárfolyamot használ; a bank, pénzváltó vagy kártyaszolgáltató tényleges árfolyama és díja eltérhet." /><CurrencyConverter /></>}
+        {tool === 'pressure' && <><ToolGuide title="Nyomás átváltása" useWhen="Ugyanazt a mért nyomást másik mértékegységben szeretnéd megkapni." needs="A mért érték, a jelenlegi és a kívánt mértékegység." accuracy="engineering" accuracyNote="Pontos mértékegység-átváltás. Ügyelj rá, hogy abszolút vagy relatív nyomást hasonlíts össze azonos alapon." /><PressureConverter /></>}
         {!tool && <><CurrencyConverter /><TemperatureConverter /><PressureConverter /><AirflowConverter /><PowerConverter /><MassFlowConverter /></>}
       </ScrollView>
     </View>
