@@ -10,6 +10,7 @@ import {
 import { ChevronDown, ChevronUp, ChevronLeft, Cpu, AlertTriangle, CheckCircle, XCircle, Gauge, Thermometer, Search, Zap, Home } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ToolGuide } from '@/components/AccuracyNotice';
+import { compressorMeasurementSnapshot, type DiagnosticPressureBasis, type DiagnosticPressureUnit } from '@/domain/refrigerationDiagnostics';
 
 const HVAC_BG = '#0D0F12';
 const HVAC_CARD = '#161A1F';
@@ -22,17 +23,19 @@ const HVAC_GREEN = '#22C55E';
 const HVAC_YELLOW = '#F59E0B';
 const HVAC_RED = '#EF4444';
 
-type StatusLevel = 'normal' | 'warning' | 'critical';
+type StatusLevel = 'normal' | 'warning' | 'critical' | 'unrated';
 
 function getStatusColor(level: StatusLevel): string {
   if (level === 'normal') return HVAC_GREEN;
   if (level === 'warning') return HVAC_YELLOW;
+  if (level === 'unrated') return HVAC_TEXT_SECONDARY;
   return HVAC_RED;
 }
 
 function getStatusLabel(level: StatusLevel): string {
-  if (level === 'normal') return 'Normál';
+  if (level === 'normal') return 'Ált. sávon belül';
   if (level === 'warning') return 'Figyelem';
+  if (level === 'unrated') return 'Gyártói adat kell';
   return 'Kritikus';
 }
 
@@ -54,19 +57,12 @@ function getScStatus(sc: number): StatusLevel {
   return 'critical';
 }
 
-function getTdStatus(td: number): StatusLevel {
-  if (td <= 90) return 'normal';
-  if (td <= 110) return 'warning';
-  return 'critical';
-}
-
-function getCurrentStatus(pct: number): StatusLevel {
-  if (pct <= 100) return 'normal';
-  if (pct <= 115) return 'warning';
-  return 'critical';
-}
+function getTdStatus(_td: number): StatusLevel { return 'unrated'; }
+function getCurrentStatus(_pct: number): StatusLevel { return 'unrated'; }
 
 type DiagResult = {
+  psAbs: number;
+  pdAbs: number;
   cr: number;
   crStatus: StatusLevel;
   sh: number;
@@ -116,41 +112,36 @@ function CompressorDiagnostics() {
   const [Tliq, setTliq] = useState('');
   const [I, setI] = useState('');
   const [Inom, setInom] = useState('');
+  const [pressureUnit, setPressureUnit] = useState<DiagnosticPressureUnit>('bar');
+  const [pressureBasis, setPressureBasis] = useState<DiagnosticPressureBasis>('gauge');
+  const [atmosphericBar, setAtmosphericBar] = useState('1,01325');
   const [result, setResult] = useState<DiagResult | null>(null);
 
   function runDiagnostics() {
     console.log('[Diagnosztika] Kompresszor diagnosztika futtatása, Ps:', Ps, 'Pd:', Pd, 'Ts:', Ts, 'Td:', Td, 'T_sat_s:', TsatS, 'T_sat_d:', TsatD, 'T_liq:', Tliq, 'I:', I, 'I_nom:', Inom);
-    const psVal = parseFloat(Ps);
-    const pdVal = parseFloat(Pd);
-    const tsVal = parseFloat(Ts);
-    const tdVal = parseFloat(Td);
-    const tsatSVal = parseFloat(TsatS);
-    const tsatDVal = parseFloat(TsatD);
-    const tliqVal = parseFloat(Tliq);
-    const iVal = parseFloat(I);
-    const inomVal = parseFloat(Inom);
-
-    if (
-      isNaN(psVal) || isNaN(pdVal) || isNaN(tsVal) || isNaN(tdVal) ||
-      isNaN(tsatSVal) || isNaN(tsatDVal) || isNaN(tliqVal) ||
-      isNaN(iVal) || isNaN(inomVal) || psVal <= 0 || inomVal <= 0
-    ) {
+    const parse = (value: string) => Number(value.trim().replace(',', '.'));
+    const snapshot = compressorMeasurementSnapshot({
+      suctionPressure: parse(Ps), dischargePressure: parse(Pd), pressureUnit, pressureBasis,
+      atmosphericBar: parse(atmosphericBar), suctionTemperatureC: parse(Ts), dischargeTemperatureC: parse(Td),
+      suctionSaturationTemperatureC: parse(TsatS), dischargeSaturationTemperatureC: parse(TsatD),
+      liquidTemperatureC: parse(Tliq), measuredCurrentA: parse(I), referenceCurrentA: parse(Inom),
+    });
+    if (!snapshot) {
       setResult(null);
       return;
     }
-
-    const cr = pdVal / psVal;
-    const sh = tsVal - tsatSVal;
-    const sc = tsatDVal - tliqVal;
-    const currentPct = (iVal / inomVal) * 100;
+    const cr = snapshot.compressionRatio;
+    const sh = snapshot.superheatK;
+    const sc = snapshot.subcoolingK;
+    const currentPct = snapshot.currentPercentOfReference;
 
     const crStatus = getCrStatus(cr);
     const shStatus = getShStatus(sh);
     const scStatus = getScStatus(sc);
-    const tdStatus = getTdStatus(tdVal);
+    const tdStatus = getTdStatus(snapshot.dischargeTemperatureC);
     const currentStatus = getCurrentStatus(currentPct);
 
-    const statuses: StatusLevel[] = [crStatus, shStatus, scStatus, tdStatus, currentStatus];
+    const statuses: StatusLevel[] = [crStatus, shStatus, scStatus];
     let overall: StatusLevel = 'normal';
     if (statuses.includes('critical')) {
       overall = 'critical';
@@ -158,7 +149,7 @@ function CompressorDiagnostics() {
       overall = 'warning';
     }
 
-    setResult({ cr, crStatus, sh, shStatus, sc, scStatus, td: tdVal, tdStatus, currentPct, currentStatus, overall });
+    setResult({ psAbs: snapshot.suctionAbsoluteBar, pdAbs: snapshot.dischargeAbsoluteBar, cr, crStatus, sh, shStatus, sc, scStatus, td: snapshot.dischargeTemperatureC, tdStatus, currentPct, currentStatus, overall });
   }
 
   const overallColor = result ? getStatusColor(result.overall) : HVAC_TEXT_SECONDARY;
@@ -167,7 +158,7 @@ function CompressorDiagnostics() {
       ? 'Azonnali beavatkozás szükséges!'
       : result.overall === 'warning'
         ? 'Ellenőrzés javasolt'
-        : 'Rendszer normálisan működik'
+        : 'Általános referenciasávon belül – nem gyártói minősítés'
     : null;
 
   const crVal = result ? result.cr.toFixed(2) : '—';
@@ -193,13 +184,13 @@ function CompressorDiagnostics() {
     }
 
     if (r.scStatus === 'critical' && r.sc < 3) {
-      recs.push('• Alacsony alűtés: lehetséges hűtőközeg hiány vagy gőzbuborék a folyadékvezetékben. Ellenőrizd a töltetet és a szárítószűrőt.');
+      recs.push('• Alacsony utóhűtés: lehetséges hűtőközeg hiány vagy gőzbuborék a folyadékvezetékben. Ellenőrizd a töltetet és a szárítószűrőt.');
     }
     if (r.scStatus === 'critical' && r.sc > 15) {
-      recs.push('• Magas alűtés: lehetséges túltöltés vagy kondenzátor hőátadási probléma. Ellenőrizd a kondenzátort és a töltetet.');
+      recs.push('• Magas utóhűtés: lehetséges túltöltés vagy kondenzátor hőátadási probléma. Ellenőrizd a kondenzátort és a töltetet.');
     }
     if (r.scStatus === 'warning') {
-      recs.push('• Alűtés a határon. Ellenőrizd a kondenzátor tisztaságát és a hűtőközeg töltetet.');
+      recs.push('• Utóhűtés az általános referenciasáv határán. Ellenőrizd a kondenzátor tisztaságát, a töltetet és a gyártói célértéket.');
     }
 
     if (r.crStatus === 'critical' && r.cr > 6.0) {
@@ -226,10 +217,7 @@ function CompressorDiagnostics() {
       recs.push('• Közel névleges vagy enyhén túlterhelt. Figyelj a hőmérsékleti viszonyokra és a tápfeszültségre.');
     }
 
-    if (recs.length === 0) {
-      recs.push('• Minden mért paraméter normál tartományban van. A kompresszor megfelelően működik.');
-      recs.push('• Következő ellenőrzés: 3 hónap múlva vagy a következő karbantartáskor.');
-    }
+    if (recs.length === 0) recs.push('• Az általános SH/SC/CR referenciasáv nem jelez eltérést. A készülék megfelelőségét csak a gyártói céltartomány és az adott üzemállapot alapján minősítsd.');
     return recs;
   }
 
@@ -256,10 +244,19 @@ function CompressorDiagnostics() {
         <View style={styles.cardBody}>
           {/* Section A */}
           <Text style={styles.sectionHeader}>A — Mért értékek</Text>
+          <Text style={styles.label}>A nyomásmérő által kijelzett nyomás alapja</Text>
+          <View style={styles.segmentRow}>
+            {([['gauge', 'Relatív / manométeres'], ['absolute', 'Abszolút']] as const).map(([value, label]) => <TouchableOpacity key={value} style={[styles.segmentBtn, pressureBasis === value && styles.segmentBtnActive]} onPress={() => setPressureBasis(value)}><Text style={[styles.segmentText, pressureBasis === value && styles.segmentBtnActiveText]}>{label}</Text></TouchableOpacity>)}
+          </View>
+          <Text style={styles.label}>Nyomásegység</Text>
+          <View style={[styles.segmentRow, { flexWrap: 'wrap', height: undefined }]}>
+            {(['bar', 'kPa', 'MPa', 'psi'] as const).map(value => <TouchableOpacity key={value} style={[styles.segmentBtn, pressureUnit === value && styles.segmentBtnActive]} onPress={() => setPressureUnit(value)}><Text style={[styles.segmentText, pressureUnit === value && styles.segmentBtnActiveText]}>{value}</Text></TouchableOpacity>)}
+          </View>
+          {pressureBasis === 'gauge' && <><Text style={styles.label}>Helyi légköri nyomás (bar abs.)</Text><TextInput style={styles.input} value={atmosphericBar} onChangeText={setAtmosphericBar} keyboardType="numeric" placeholder="1,01325" placeholderTextColor={HVAC_TEXT_SECONDARY} /></>}
 
           <View style={styles.inputGrid}>
             <View style={styles.inputHalf}>
-              <Text style={styles.label}>Szívónyomás P_s (bar)</Text>
+              <Text style={styles.label}>Szívónyomás P_s ({pressureUnit})</Text>
               <TextInput
                 style={styles.input}
                 value={Ps}
@@ -270,7 +267,7 @@ function CompressorDiagnostics() {
               />
             </View>
             <View style={styles.inputHalf}>
-              <Text style={styles.label}>Nyomónyomás P_d (bar)</Text>
+              <Text style={styles.label}>Nyomónyomás P_d ({pressureUnit})</Text>
               <TextInput
                 style={styles.input}
                 value={Pd}
@@ -390,6 +387,9 @@ function CompressorDiagnostics() {
 
               {/* Parameter rows */}
               <View style={styles.resultBox}>
+                <View style={styles.resultRow}><Text style={styles.resultLabel}>Szívónyomás abs.</Text><Text style={styles.resultValue}>{result.psAbs.toFixed(3)} bar abs.</Text></View>
+                <View style={styles.resultRow}><Text style={styles.resultLabel}>Nyomónyomás abs.</Text><Text style={styles.resultValue}>{result.pdAbs.toFixed(3)} bar abs.</Text></View>
+                <View style={styles.divider} />
                 <DiagRow
                   label="Kompresszióviszony CR"
                   value={crVal}
@@ -405,7 +405,7 @@ function CompressorDiagnostics() {
                 />
                 <View style={styles.divider} />
                 <DiagRow
-                  label="Alűtés SC"
+                  label="Utóhűtés SC"
                   value={scVal}
                   unit="°C"
                   status={result.scStatus}
@@ -425,6 +425,7 @@ function CompressorDiagnostics() {
                   status={result.currentStatus}
                 />
               </View>
+              <Text style={styles.noteText}>A kompresszióviszony minden esetben abszolút nyomásból készül. Az SH, SC és CR színezése csak általános, készülékfüggetlen támpont. A nyomóhőmérséklet és az áramfelvétel gyártói, modell- és üzemállapot-függő, ezért az app ezeket gyártói adat nélkül nem minősíti.</Text>
 
               {/* Recommendations */}
               <View style={styles.recsCard}>
@@ -449,7 +450,7 @@ function KompresszioviszonyKalkulator() {
   const [dischargeInput, setDischargeInput] = useState('');
   const [unit, setUnit] = useState<'bar_g' | 'bar_abs' | 'kPa_g' | 'psig'>('bar_g');
 
-  const UNITS: Array<{ key: 'bar_g' | 'bar_abs' | 'kPa_g' | 'psig'; label: string }> = [
+  const UNITS: { key: 'bar_g' | 'bar_abs' | 'kPa_g' | 'psig'; label: string }[] = [
     { key: 'bar_g',   label: 'bar (rel)' },
     { key: 'bar_abs', label: 'bar (abs)' },
     { key: 'kPa_g',   label: 'kPa (rel)' },

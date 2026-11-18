@@ -40,9 +40,8 @@ type Branch = {
 // ─── Branch Calculation ───────────────────────────────────────────────────────
 
 const RHO = 1.2;   // kg/m³ air density
-const LAMBDA = 0.02; // default friction factor
-const G4_FILTER_LOSS = 20; // Pa — built-in G4 szűrődoboz, fixed, not user-configurable
 const NU = 15.11e-6; // m²/s — kinematic viscosity of air at 20 °C
+const EPS_SPIRAL = 0.00009; // m — horganyzott spirálkorcolt cső általános érdességi alapértéke
 const EPS_FLEX = 0.002; // m — effective roughness for insulated flexible duct (2.0 mm)
 
 const BRANCH_FITTINGS: { label: string; K: number }[] = [
@@ -145,7 +144,7 @@ type BranchResult = {
   totalDrop: number;      // Pa — straight + fitting + diffuser + valve
   velocityColor: string;
   dropColor: string;
-  lambda?: number;        // only set for SONODEK branches
+  lambda?: number;
 };
 
 /** Iterative Colebrook-White solver — returns Darcy friction factor λ.
@@ -188,15 +187,9 @@ function calcBranch(branch: Branch): BranchResult | null {
   let lam: number;
   let lambda: number | undefined;
 
-  if (branch.ductType === 'sonodek') {
-    // Flexible insulated duct: Colebrook-White with ε = 2.0 mm
-    const Re = v * D / NU;
-    lam = colebrookLambda(Re, D, EPS_FLEX);
-    lambda = lam;
-  } else {
-    // Rigid spiral duct: fixed friction factor
-    lam = LAMBDA;
-  }
+  const Re = v * D / NU;
+  lam = colebrookLambda(Re, D, branch.ductType === 'sonodek' ? EPS_FLEX : EPS_SPIRAL);
+  lambda = lam;
 
   const R = lam * RHO * v * v / (2 * D);        // Pa/m
   const straightDrop = R * L;
@@ -247,9 +240,11 @@ type FujitsuModel = typeof FUJITSU_MODELS[number];
 
 function UnitCard({
   availableEsp, setAvailableEsp,
+  filterLoss, setFilterLoss,
   damperLoss, setDamperLoss,
 }: {
   availableEsp: string; setAvailableEsp: (v: string) => void;
+  filterLoss: string; setFilterLoss: (v: string) => void;
   damperLoss: string; setDamperLoss: (v: string) => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -430,6 +425,16 @@ function UnitCard({
           {/* 11. Tartozékveszteségek */}
           <Text style={[styles.label, { marginTop: 12 }]}>Tartozékveszteségek</Text>
 
+          <Text style={styles.label}>Szűrő / szűrődoboz nyomásesése (Pa)</Text>
+          <TextInput
+            style={styles.input}
+            value={filterLoss}
+            onChangeText={v => { console.log('[Légelosztás] Szűrőveszteség input:', v); setFilterLoss(v); }}
+            keyboardType="numeric"
+            placeholder="gyártói adat vagy mért érték"
+            placeholderTextColor={HVAC_TEXT_SECONDARY}
+          />
+
           <Text style={styles.label}>Nyomóoldali pillangószelep (Pa)</Text>
           <TextInput
             style={styles.input}
@@ -440,7 +445,7 @@ function UnitCard({
             placeholderTextColor={HVAC_TEXT_SECONDARY}
           />
           <Text style={styles.noteText}>
-            A G4 szűrődoboz nyomásesése (20 Pa) automatikusan beleszámít a rendszer nyomásmérlegébe. A pillangószelep veszteség levonásra kerül a rendelkezésre álló ESP-ből.
+            A szűrő és a szelep veszteségét a választott termék adatlapjáról vagy mérésből add meg. A tiszta és az eltömődött szűrő nyomásesése eltér; általános fix értéket az app nem feltételez.
           </Text>
         </View>
       )}
@@ -934,17 +939,20 @@ function BranchCard({ branch, onUpdate, onDelete, onDuplicate }: {
 function SummaryCard({
   branches,
   availableEsp,
+  filterLoss,
   damperLoss,
 }: {
   branches: Branch[];
   availableEsp: string;
+  filterLoss: string;
   damperLoss: string;
 }) {
   const esp = parseFloat(availableEsp);
+  const filter = parseFloat(filterLoss);
   const damper = parseFloat(damperLoss);
   const hasEsp = !isNaN(esp) && esp > 0;
   const usableEsp = hasEsp
-    ? esp - G4_FILTER_LOSS - (isNaN(damper) ? 0 : damper)
+    ? esp - (isNaN(filter) ? 0 : filter) - (isNaN(damper) ? 0 : damper)
     : null;
   const usableEspColor = usableEsp === null
     ? HVAC_TEXT_SECONDARY
@@ -995,7 +1003,7 @@ function SummaryCard({
 
   const branchCountText = `${branches.length} db`;
   const espText = hasEsp ? `${esp} Pa` : '—';
-  const filterText = `${G4_FILTER_LOSS} Pa`;
+  const filterText = !isNaN(filter) && filter >= 0 ? `${filter} Pa` : 'nincs megadva';
   const damperText = !isNaN(damper) && damper > 0 ? `${damper} Pa` : '—';
   const usableEspText = usableEsp !== null ? `${usableEsp.toFixed(1)} Pa` : '—';
   const totalAirflowText = totalAirflow > 0 ? `${totalAirflow.toFixed(0)} m³/h` : '—';
@@ -1056,7 +1064,8 @@ function SummaryCard({
                   (() => {
                     const hints: string[] = [];
                     if (criticalDrop !== null && usableEsp !== null && criticalDrop > usableEsp * 0.8) hints.push('a kritikus ág nyomásesése az ESP nagy részét felhasználja');
-                    if (!isNaN(damper) && damper > 0 && (G4_FILTER_LOSS + damper) > (usableEsp ?? 0) * 0.3) hints.push('a tartozékveszteségek jelentősen csökkentik a csatornára maradó nyomást');
+                    const accessoryLoss = (isNaN(filter) ? 0 : filter) + (isNaN(damper) ? 0 : damper);
+                    if (accessoryLoss > (usableEsp ?? 0) * 0.3) hints.push('a tartozékveszteségek jelentősen csökkentik a csatornára maradó nyomást');
                     if (hints.length === 0) hints.push('a tartalék szűk, érdemes ellenőrizni az ágak méretezését');
                     return `⚠ Figyelem: ${hints.join('; ')}.`;
                   })()
@@ -1065,7 +1074,8 @@ function SummaryCard({
                   (() => {
                     const hints: string[] = [];
                     if (criticalDrop !== null && usableEsp !== null && criticalDrop > usableEsp) hints.push('a kritikus ág nyomásesése meghaladja a felhasználható ESP-t – növeld a csatorna átmérőjét vagy rövidítsd az ágat');
-                    if (!isNaN(damper) && (G4_FILTER_LOSS + (isNaN(damper) ? 0 : damper)) > esp * 0.4) hints.push('a tartozékveszteségek az ESP több mint 40%-át elvesznek – ellenőrizd a szűrő és szelep adatait');
+                    const accessoryLoss = (isNaN(filter) ? 0 : filter) + (isNaN(damper) ? 0 : damper);
+                    if (accessoryLoss > esp * 0.4) hints.push('a tartozékveszteségek az ESP több mint 40%-át elvesznek – ellenőrizd a szűrő és szelep adatait');
                     if (totalAirflow > 0 && hasEsp && totalAirflow > 1500 && esp < 50) hints.push('nagy légszállítás mellett alacsony ESP – ellenőrizd az egység adatlapját');
                     if (hints.length === 0) hints.push('csökkentsd az ágak nyomásesését vagy válassz nagyobb ESP-jű egységet');
                     return `✗ Ok: ${hints.join('; ')}.`;
@@ -1089,6 +1099,7 @@ export default function LegelosztasScreen() {
   const router = useRouter();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [availableEsp, setAvailableEsp] = useState('');
+  const [filterLoss, setFilterLoss] = useState('');
   const [damperLoss, setDamperLoss] = useState('');
 
   function addBranch() {
@@ -1172,6 +1183,7 @@ export default function LegelosztasScreen() {
 
         <UnitCard
           availableEsp={availableEsp} setAvailableEsp={setAvailableEsp}
+          filterLoss={filterLoss} setFilterLoss={setFilterLoss}
           damperLoss={damperLoss} setDamperLoss={setDamperLoss}
         />
 
@@ -1198,6 +1210,7 @@ export default function LegelosztasScreen() {
           <SummaryCard
             branches={branches}
             availableEsp={availableEsp}
+            filterLoss={filterLoss}
             damperLoss={damperLoss}
           />
         )}

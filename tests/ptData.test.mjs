@@ -16,4 +16,18 @@ assert.notEqual(PT_SATURATION_DATA.R454C[20][1], PT_SATURATION_DATA.R454C[20][2]
 assert.notEqual(PT_SATURATION_DATA.R448A[20][1], PT_SATURATION_DATA.R448A[20][2]);
 assert.notEqual(PT_SATURATION_DATA.R449A[20][1], PT_SATURATION_DATA.R449A[20][2]);
 assert.equal(PT_SATURATION_DATA.R32[20][1], PT_SATURATION_DATA.R32[20][2]);
+
+function pressureAt(refrigerant, temperatureC, phaseColumn = 1) {
+  const row = PT_SATURATION_DATA[refrigerant].find(item => item[0] === temperatureC);
+  assert.ok(row, `${refrigerant}: hiányzó ${temperatureC} °C referenciapont`);
+  return row[phaseColumn];
+}
+
+// Fagyasztott CoolProp 8.0.0 referenciapontok: nagyságrendi, hűtőközeg-
+// felcserélési és relatív/abszolút nyomásalap-hibák regressziós védelme.
+assert.ok(Math.abs(pressureAt('R410A', 0, 1) - 8.0070538) < 1e-7);
+assert.ok(Math.abs(pressureAt('R410A', 20, 2) - 14.4292736) < 1e-7);
+assert.ok(Math.abs(pressureAt('R32', 0) - 8.1310126) < 1e-7);
+assert.ok(Math.abs(pressureAt('R32', 20) - 14.745658) < 1e-7);
+assert.ok(Math.abs(pressureAt('R134a', 20) - 5.7170691) < 1e-7);
 console.log('ptData: 14 hűtőközeg és a teljes monotonitás ellenőrizve');
